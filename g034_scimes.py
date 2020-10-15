@@ -47,15 +47,20 @@ def main(args):
     #%&%&%&%&%&%&%&%&%&%&%&%
     print('Make dendrogram from the full cube')
     hdu = fits.open(args.fits_file)[0]
-    data = hdu.data[701:1100,:,:]
+    data = hdu.data[801:1000,:,:]
     hd = hdu.header
     
     # Survey designs
     sigma = args.sigma #K, noise level
     ppb = args.ppb #pixels/beam
-                    
+
+    def custom_independent(structure, index=None, value=None):
+       peak_index, peak_value = structure.get_peak()
+       return peak_value > 3.*sigma
+                   
     d = Dendrogram.compute(data, min_value=sigma, \
-                            min_delta=0.5*sigma, min_npix=1.*ppb, \
+                            min_delta=args.delta*sigma, min_npix=1.*ppb, \
+                            is_independent=custom_independent, \
                             verbose = 1)
     
     
@@ -74,6 +79,7 @@ def main(args):
     print("Running SCIMES")
     dclust = scimes.SpectralCloudstering(d, cat, hd, rms=sigma, \
                             user_iter=args.iter, \
+                            save_all_leaves = True, \
                             )
     
     
@@ -98,7 +104,7 @@ def main(args):
         plt.colorbar(label='Structure label')
         plt.xlabel('X [pixel]')
         plt.ylabel('Y [pixel]')
-        plt.show()
+#        plt.show()
     
     
     print("Image the results with APLpy")
@@ -121,18 +127,19 @@ def main(args):
         mask_coll = np.amax(mask_hdu.data, axis = 0)
         mask_coll_hdu = fits.PrimaryHDU(mask_coll.astype('short'), hd2d(hdu.header))
                         
-        fig.show_contour(mask_coll_hdu, colors=colors[count], linewidths=1, convention='wells', levels = [0])
+        fig.show_contour(mask_coll_hdu, colors=colors[count], linewidths=2, convention='wells', levels = [0])
     
         count = count+1
         print(count)
                     
-    fig.tick_labels.set_xformat('dd')
-    fig.tick_labels.set_yformat('dd')
+#    fig.tick_labels.set_xformat('dd')
+#    fig.tick_labels.set_yformat('dd')
     
     fig.add_colorbar()
     fig.colorbar.set_axis_label_text(r'[(K km/s)$^{1/2}$]')
     fig.save('b.png')
 
+    plt.show()
     return 0
 
 if __name__ == '__main__':
@@ -140,7 +147,8 @@ if __name__ == '__main__':
     parser.add_argument('fits_file', type=str, help='the input data file')
     parser.add_argument('--sigma', type=float, default=0.01, help='the noise level')
     parser.add_argument('--ppb', type=float, default=9.0, help='the pixel per beam')
-    parser.add_argument('--iter', type=int, default=10, help='the pixel per beam')
+    parser.add_argument('--iter', type=int, default=10, help='number of k-means iteration')
+    parser.add_argument('--delta', type=float, default=1., help='delta of sigma to asign a leaf')
     args = parser.parse_args()
     start_time = time.time()
     main(args)
