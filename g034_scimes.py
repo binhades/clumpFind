@@ -55,7 +55,8 @@ def main(args):
     ppb = args.ppb #pixels/beam
                     
     d = Dendrogram.compute(data, min_value=sigma, \
-                            min_delta=2.*sigma, min_npix=1.*ppb, verbose = 1)
+                            min_delta=0.5.*sigma, min_npix=1.*ppb, \
+                            verbose = 1)
     
     
     #%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -71,7 +72,9 @@ def main(args):
     #     Running SCIMES
     #%&%&%&%&%&%&%&%&%&%&%&%&%&%
     print("Running SCIMES")
-    dclust = scimes.SpectralCloudstering(d, cat, hd, rms=sigma)
+    dclust = scimes.SpectralCloudstering(d, cat, hd, rms=sigma, \
+                            user_iter=args.iter, \
+                            )
     
     
     #%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -137,6 +140,7 @@ if __name__ == '__main__':
     parser.add_argument('fits_file', type=str, help='the input data file')
     parser.add_argument('--sigma', type=float, default=0.01, help='the noise level')
     parser.add_argument('--ppb', type=float, default=9.0, help='the pixel per beam')
+    parser.add_argument('--iter', type=int, default=10, help='the pixel per beam')
     args = parser.parse_args()
     start_time = time.time()
     main(args)
