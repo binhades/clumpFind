@@ -55,7 +55,7 @@ def main(args):
     ppb = args.ppb #pixels/beam
                     
     d = Dendrogram.compute(data, min_value=sigma, \
-                            min_delta=0.5.*sigma, min_npix=1.*ppb, \
+                            min_delta=0.5*sigma, min_npix=1.*ppb, \
                             verbose = 1)
     
     
