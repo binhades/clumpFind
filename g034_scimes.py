@@ -56,11 +56,11 @@ data = hdu.data
 hd = hdu.header
 
 # Survey designs
-sigma = 0.0005 #K, noise level
-ppb = 7.0 #pixels/beam
+sigma = 0.05 #K, noise level
+ppb = 6.0 #pixels/beam
 	        
 d = Dendrogram.compute(data, min_value=sigma, \
-	                min_delta=0.5*sigma, min_npix=3*ppb, verbose = 1)
+	                min_delta=5*sigma, min_npix=3*ppb, verbose = 1)
 
 
 #%&%&%&%&%&%&%&%&%&%&%&%&%&%
