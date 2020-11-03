@@ -1,0 +1,97 @@
+#!/usr/bin/python3
+
+import numpy as np
+from astropy.io import fits
+from astropy import units as u
+import aplpy
+import scimes
+from astrodendro import Dendrogram, ppv_catalog
+
+from matplotlib import pyplot as plt
+from matplotlib.collections import PolyCollection
+from matplotlib import colors as mcolors
+
+
+print('Make dendrogram from the full cube')
+fits_file = 'G034.39+00.22_Halpha_Jy_cube_aver_fix_cov_H184a_smooth.fits'
+hdu = fits.open(fits_file)[0]
+hdr = hdu.header
+data = hdu.data[801:1000,:,:]
+    
+# Survey designs
+sigma = 0.0008 #K, noise level
+ppb = 4 #pixels/beam
+
+d = Dendrogram.compute(data, min_value=sigma, \
+                            min_delta=2*sigma, min_npix=1.*ppb, \
+                            verbose = 1)
+#    def custom_independent(structure, index=None, value=None):
+#       peak_index, peak_value = structure.get_peak()
+#       return peak_value > 3.*sigma
+#                   
+#    d = Dendrogram.compute(data, min_value=sigma, \
+#                            min_delta=args.delta*sigma, min_npix=1.*ppb, \
+#                            is_independent=custom_independent, \
+#                            verbose = 1)
+v=d.viewer()
+v.show()
+
+mask = v.hub.selections[1][0].get_mask()
+dd = np.ma.masked_array(data,mask=mask)
+mask2d = mask.mean(axis=0)
+mask3d = np.repeat(mask2d[np.newaxis,:,:], 199, axis=0)
+    
+#    #%&%&%&%&%&%&%&%&%&%&%&%&%&%
+#    #   Generate the catalog
+#    #%&%&%&%&%&%&%&%&%&%&%&%&%&%
+#    print("Generate a catalog of dendrogram structures")
+#    metadata = {}
+#    metadata['data_unit'] = u.Jy #This should be Kelvin (not yet implemented)!
+#    cat = ppv_catalog(d, metadata)
+#    print(cat)
+#    
+#    
+#    #%&%&%&%&%&%&%&%&%&%&%&%&%&%
+#    #     Running SCIMES
+#    #%&%&%&%&%&%&%&%&%&%&%&%&%&%
+#    print("Running SCIMES")
+#    dclust = scimes.SpectralCloudstering(d, cat, hd, rms=sigma, \
+#                            user_iter=args.iter, \
+#                            save_all_leaves = True, \
+#                            blind=True, \
+#                            )
+#    
+#    
+#    #%&%&%&%&%&%&%&%&%&%&%&%&%&%
+#    #     Image the result
+#    #%&%&%&%&%&%&%&%&%&%&%&%&%&%
+#    print("Visualize the clustered dendrogram")
+#    dclust.showdendro()
+#    
+#    print("Visualize collapsed maps of the assignment cubes")
+#    cube = dclust.leaves_asgn
+#    print(cube.data.shape)
+#    
+#    fig = plt.figure()
+#    plt.imshow(np.nanmax(cube.data,axis=0),origin='lower',\
+#                    interpolation='nearest',cmap='jet')
+#    title = 'Leaves'
+#    plt.title(title+' assignment map')
+#    plt.colorbar(label='Structure label')
+#    plt.xlabel('X [pixel]')
+#    plt.ylabel('Y [pixel]')
+#    plt.show()
+#    
+#    return 0
+#
+#if __name__ == '__main__':
+#    parser = argparse.ArgumentParser()
+#    parser.add_argument('fits_file', type=str, help='the input data file')
+#    parser.add_argument('--sigma', type=float, default=0.01, help='the noise level')
+#    parser.add_argument('--ppb', type=float, default=9.0, help='the pixel per beam')
+#    parser.add_argument('--iter', type=int, default=10, help='number of k-means iteration')
+#    parser.add_argument('--delta', type=float, default=1., help='delta of sigma to asign a leaf')
+#    args = parser.parse_args()
+#    start_time = time.time()
+#    main(args)
+#    print("--- {:.3f} seconds ---".format(time.time() - start_time))
