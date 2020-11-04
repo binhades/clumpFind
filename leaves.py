@@ -2,15 +2,10 @@
 
 import argparse, os, time
 import numpy as np
+from toolkit import smooth
 from astropy.io import fits
-from astropy import units as u
-import aplpy
-import scimes
 from astrodendro import Dendrogram, ppv_catalog
-
 from matplotlib import pyplot as plt
-from matplotlib.collections import PolyCollection
-from matplotlib import colors as mcolors
 
 
 def hd2d(hd):
@@ -31,7 +26,19 @@ def hd2d(hd):
     
     return mhd
 
+def plot_spec(fig,x,y):
+    ax = fig.add_subplot(1,2,1)
+    ax.plot(x,y,lw=0.5)
+    ax.set_ylim(-2.5,10.5)
+    ax.set_xlabel('V$_{LSR}$ (km$\,$s$^{-1}$)')
+    ax.set_ylabel('Flux (Jy$\,$beam$^{-1}$)')
+    return 0
 
+def plot_imag(fig,imag,mask)
+    ax = fig.add_subplot(1,2,2)
+    ax.imshow(imag,origin='lower',interpolation='nearest',cmap='hot',\
+            aspect='equal',vmin=0.0005,vmax=0.005)
+    ax.contour(mask,linewidths=2,levels=[0.001],alpha=0.8)
 
 def main(args):
     
@@ -40,56 +47,45 @@ def main(args):
     #%&%&%&%&%&%&%&%&%&%&%&%
     print('Make dendrogram from the full cube')
     hdu = fits.open(args.fits_file)[0]
+    hdr = hdu.header
     d0 = hdu.data
     nchan = d0.shape[0]
     ny = d0.shape[1]
     nx = d0.shape[2]
-    d1 = d0[801:1000,:,:]
-    hdr = hdu.header
-    
-    # Survey designs
-    sigma = args.sigma #K, noise level
-    ppb = args.ppb #pixels/beam
-
-    def custom_independent(structure, index=None, value=None):
-       peak_index, peak_value = structure.get_peak()
-       return peak_value > 3.*sigma
-                   
-    d = Dendrogram.compute(d1, min_value=sigma, \
-                            min_delta=args.delta*sigma, min_npix=1.*ppb, \
-                            is_independent=custom_independent, \
-                            verbose = 1)
-    #v=d.viewer()
-    #v.show()
-    
-    #%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    #   Generate the catalog
-    #%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    #print("Generate a catalog of dendrogram structures")
-    #metadata = {}
-    #metadata['data_unit'] = u.Jy #This should be Kelvin (not yet implemented)!
-    #cat = ppv_catalog(d, metadata)
-    #print(cat)
-    
+    d = Dendrogram.load_from(args.file_d+'.hdf5')
+   
     #%&%&%&%&%&%&%&%&%&%&%&%&%&%
     #     Plot Leaves
     #%&%&%&%&%&%&%&%&%&%&%&%&%&%
     print("Plot Leaves")
 
-    fig = plt.figure()
+    #fig, axs = plt.subplots(1, 2, figsize=(9, 4))
+    fig = plt.figure(figsize=(9, 4))
     for leaf in d.leaves:
-        mask = leaf.get_mask()
-        mask2d = mask.mean(axis=0)
+        print(leaf.idx)
+        file_out = 'leaf'+str(leaf.idx)+'.png'
+        peak = leaf.get_peak()[0]
+        ind_p = args.chan_0+peak[0]
+
+        imag  = d0[ind_p-10:ind_p+10,:,:].mean(axis=0)
+
+        mask2d = leaf.get_mask().mean(axis=0)
         mask = np.zeros((ny,nx))
         mask[np.where(mask2d==0)] = True
         mask[np.where(mask2d!=0)] = False
         mask3d = np.repeat(mask[np.newaxis,:,:],nchan,axis=0)
+
         md = np.ma.masked_array(d0,mask=mask3d)
         sp = md.mean(axis=(1,2))
-        plt.plot(sp)
+        spsm = smooth(sp,window_len=5) * 1000.
+
+        plot_spec(fig,velo,spsm)
+        plot_imag(fig,imag,mask2d)
+        fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
+        plt.clf()
 #        break
 
-    plt.show()
+#    plt.show()
 
 
     
@@ -109,10 +105,9 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('fits_file', type=str, help='the input data file')
-    parser.add_argument('--sigma', type=float, default=0.01, help='the noise level')
-    parser.add_argument('--ppb', type=float, default=9.0, help='the pixel per beam')
-    parser.add_argument('--iter', type=int, default=10, help='number of k-means iteration')
-    parser.add_argument('--delta', type=float, default=1., help='delta of sigma to asign a leaf')
+    parser.add_argument('--file_d', type=str, default='my_dendrogram', help='the dendrogram file')
+    parser.add_argument('--chan_0', type=int, default=0,  help='channel index start')
+    parser.add_argument('--chan_1', type=int, default=-1, help='channel index end')
     args = parser.parse_args()
     start_time = time.time()
     main(args)
