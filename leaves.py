@@ -5,42 +5,29 @@ import numpy as np
 from toolkit import smooth
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy.visualization import simple_norm
 from astropy.coordinates import SkyCoord
-from astropy.visualization import (MinMaxInterval, SqrtStretch, ImageNormalize)
 from astrodendro import Dendrogram, ppv_catalog
 from matplotlib import pyplot as plt
+from matplotlib import cm
 from matplotlib.colors import LogNorm
 
-def hd2d(hd):
-# Function to remove the 3rd dimension in a 
-# spectroscopic cube header
-
-    # Create bi-dimensional header
-    mhd = fits.PrimaryHDU(np.zeros([hd['NAXIS2'],hd['NAXIS1']])).header
-    
-    for i in ['1','2']:
-            for t in ['CRVAL','CRPIX','CDELT','CTYPE','CROTA','CUNIT']:
-                    if hd.get(t+i) != None:
-                            mhd[t+i] = hd[t+i]
-    
-    for t in ['BUNIT','BMAJ','BMIN','BPA','RESTFRQ']:
-            if hd.get(t) != None:
-                    mhd[t] = hd[t]
-    
-    return mhd
-
-def plot_spec(fig,x,y,ftsize='x-large',title=None,vline=None):
+def plot_spec(fig,x,ym,yp,ftsize='x-large',title=None,vline=None):
     ax = fig.add_subplot(1,2,1)
-    ax.plot(x,y,lw=0.5)
-    ax.set_xlim(-250,250)
-    ax.set_ylim(-2.5,10.5)
+
+    if vline is not None:
+        ax.axvline(x[vline],lw=1.5,color='red')
+
+    ax.plot(x,yp,lw=0.5, label='peak')
+    ax.plot(x,ym,'--',lw=1, label='average')
+    ax.legend()
+    ax.set_xlim(-200,250)
+    #ax.set_ylim(-2.5,10.5)
     ax.set_xlabel('V$_{LSR}$ (km$\,$s$^{-1}$)',fontsize=ftsize)
     ax.set_ylabel('Flux (mJy$\,$beam$^{-1}$)',fontsize=ftsize)
     if title is not None:
         ax.set_title(title,fontsize=ftsize)
-    if vline is not None:
-        ax.axvline(x[vline],lw=2.,color='red')
-    return 0
+    return ax
 
 def plot_imag(fig,imag,mask,wcs,ftsize='x-large',coor=None,title=None):
     ax = fig.add_subplot(1,2,2,projection=wcs)
@@ -65,8 +52,9 @@ def plot_imag(fig,imag,mask,wcs,ftsize='x-large',coor=None,title=None):
     if coor is not None:
         ax.plot(coor[0],coor[1],marker='*')
     cbar = ax.figure.colorbar(im)
-    cbar.ax.set_ylabel('mJy km$\,$s$^{-1}$',fontsize=ftsize)
+    cbar.ax.set_ylabel('mJy$\,$beam$^{-1}$ km$\,$s$^{-1}$',fontsize=ftsize)
 
+    return ax
 
 def main(args):
     
@@ -76,7 +64,7 @@ def main(args):
     print('Make dendrogram from the full cube')
     hdu = fits.open(args.fits_file)[0]
     hdr = hdu.header
-    wcs = WCS(hdr,'degree').celestial
+    wcs = WCS(header=hdr).celestial
     data = hdu.data
     nchan = data.shape[0]
     velo = (np.arange(nchan) - hdr['CRPIX3'] + 1) * hdr['CDELT3'] + hdr['CRVAL3']
@@ -89,9 +77,20 @@ def main(args):
     #%&%&%&%&%&%&%&%&%&%&%&%&%&%
     print("Plot Leaves")
 
+    imag0 = data[args.chan_0:args.chan_1,:,:].mean(axis=0)
+    norm = simple_norm(imag0,stretch='asinh',asinh_a=0.18,min_percent=5,max_percent=100)
+
+    fig0 = plt.figure(figsize=(8,8))
+    ax0 = fig0.add_subplot(1,1,1,projection=wcs)
+    im0 = ax0.imshow(imag0,origin='lower',interpolation='nearest',cmap='Greys_r',\
+            aspect='equal',norm=norm) #,vmin=0.0005,vmax=0.005
+
     fig = plt.figure(figsize=(12, 4))
-    for leaf in d.leaves:
-        print(leaf.idx)
+
+    c_interval = np.linspace(0,1,len(d.leaves))
+    colors = [cm.rainbow(x) for x in c_interval]
+    for i, leaf in enumerate(d.leaves):
+        print(leaf.idx, 'of', len(d.leaves))
         file_out = 'leaf'+str(leaf.idx)+'.png'
         peak = leaf.get_peak()[0]
         v_p = args.chan_0+peak[0]
@@ -115,13 +114,20 @@ def main(args):
         mask3d = np.repeat(mask[np.newaxis,:,:],nchan,axis=0)
 
         md = np.ma.masked_array(data,mask=mask3d)
-        sp = md.mean(axis=(1,2))
-        spsm = smooth(sp,window_len=5) * 1000.
+        spm = md.mean(axis=(1,2))
+        spp = data[:,y_p,x_p]
+        spmsm = smooth(spm,window_len=5) * 1000.
+        sppsm = smooth(spp,window_len=5) * 1000.
 
-        plot_spec(fig,velo,spsm,vline=v_p,title=title0)
-        plot_imag(fig,imag,mask2d,wcs,coor=(x_p,y_p),title=title1)
-        fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
-        plt.clf()
+        ax0.contour(mask2d,linewidths=2,levels=[0.001],alpha=0.8,colors=[colors[i]])
+        #plot_spec(fig,velo,spmsm,sppsm,vline=v_p,title=title0)
+        #plot_imag(fig,imag,mask2d,wcs,coor=(x_p,y_p),title=title1)
+        #fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
+        #plt.clf()
+
+
+    fig0.savefig('m0-leaves.png',dpi=300,format='png',bbox_inches='tight')
+
     
     return 0
 
