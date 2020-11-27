@@ -1,14 +1,10 @@
 #!/usr/bin/python3
 
 import argparse, os, time
-import numpy as np
+#import numpy as np
 from astropy.io import fits
 from astropy import units as u
 from astrodendro import Dendrogram, ppv_catalog
-
-from matplotlib import pyplot as plt
-from matplotlib.collections import PolyCollection
-from matplotlib import colors as mcolors
 
 def calc_dendrogram(data,sigma,snr,delta,ppb, save=False,fout='temp'):
     # Survey designs

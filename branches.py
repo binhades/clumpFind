@@ -57,7 +57,7 @@ def plot_imag(fig,imag,mask,wcs,ftsize='x-large',coor=None,title=None):
     return ax
 
 def main(args):
-
+    
     #%&%&%&%&%&%&%&%&%&%&%&%
     #    Load DataCube
     #%&%&%&%&%&%&%&%&%&%&%&%
@@ -78,9 +78,9 @@ def main(args):
     d = Dendrogram.load_from(args.file_d+'.hdf5')
    
     #%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    #     Plot Leaves
+    #     Plot Branches
     #%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    print("Plot Leaves")
+    print("Plot Branches")
 
     imag0 = data[args.chan_0:args.chan_1,:,:].mean(axis=0)
     norm = simple_norm(imag0,stretch='asinh',asinh_a=0.18,min_percent=5,max_percent=100)
@@ -92,46 +92,48 @@ def main(args):
 
     fig = plt.figure(figsize=(12, 4))
 
-    c_interval = np.linspace(0,1,len(d.leaves))
+    c_interval = np.linspace(0,1,len(d.trunk))
     colors = [cm.rainbow(x) for x in c_interval]
-    for i, leaf in enumerate(d.leaves):
-        print(leaf.idx, 'of', len(d.leaves))
-        file_out = 'leaf'+str(leaf.idx)+'.png'
-        peak = leaf.get_peak()[0]
-        v_p = args.chan_0+peak[0]
-        x_p = peak[2]
-        y_p = peak[1]
+    for i, struc in enumerate(d.trunk):
+        if struc.is_branch:
+            file_out = 'branch'+str(struc.idx)+'.png'
+            peak = struc.get_peak()[0]
+            v_p = args.chan_0+peak[0]
+            x_p = peak[2]
+            y_p = peak[1]
 
-        coor = SkyCoord.from_pixel(x_p,y_p,wcs)
-        gc = coor.transform_to('galactic')
-        equ_str = coor.to_string(style='hmsdms',precision=0)
-        #gal_str = gc.to_string(style='decimal',precision=2)
-        gal_str = 'G{:5.2f}{:+5.2f}'.format(gc.l.value,gc.b.value)
-        title0 = equ_str + ' @ '+str(velo[v_p]) + ' km/s'
-        title1 = gal_str + ' @ '+str(velo[v_p]) + ' km/s'
+            coor = SkyCoord.from_pixel(x_p,y_p,wcs)
+            gc = coor.transform_to('galactic')
+            equ_str = coor.to_string(style='hmsdms',precision=0)
+            #gal_str = gc.to_string(style='decimal',precision=2)
+            gal_str = 'G{:5.2f}{:+5.2f}'.format(gc.l.value,gc.b.value)
+            title0 = equ_str + ' @ '+str(velo[v_p]) + ' km/s'
+            title1 = gal_str + ' @ '+str(velo[v_p]) + ' km/s'
 
-        imag  = data[v_p-2:v_p+2,:,:].sum(axis=0) * hdr['CDELT3'] * 1000
+            imag  = data[v_p-2:v_p+2,:,:].sum(axis=0) * hdr['CDELT3'] * 1000
 
-        mask2d = leaf.get_mask().mean(axis=0)
-        mask = np.zeros((ny,nx))
-        mask[np.where(mask2d==0)] = True
-        mask[np.where(mask2d!=0)] = False
-        mask3d = np.repeat(mask[np.newaxis,:,:],nchan,axis=0)
+            # Get 3D mask of the structure in False
+            mask2d = struc.get_mask().mean(axis=0) # True for structure
+            mask = np.zeros((ny,nx))
+            mask[np.where(mask2d==0)] = True  # reverse, True for empty
+            mask[np.where(mask2d!=0)] = False # reverse, False for struc 
+            mask3d = np.repeat(mask[np.newaxis,:,:],nchan,axis=0)
 
-        md = np.ma.masked_array(data,mask=mask3d)
-        spm = md.mean(axis=(1,2))
-        spp = data[:,y_p,x_p]
-        spmsm = smooth(spm,window_len=5) * 1000.
-        sppsm = smooth(spp,window_len=5) * 1000.
+            # Produce the averaged and peaked spectrum of the structure
+            md = np.ma.masked_array(data,mask=mask3d) # True to mask OUT!
+            spm = md.mean(axis=(1,2))
+            spp = data[:,y_p,x_p]
+            spmsm = smooth(spm,window_len=5) * 1000.
+            sppsm = smooth(spp,window_len=5) * 1000.
 
-        ax0.contour(mask2d,linewidths=2,levels=[0.001],alpha=0.8,colors=[colors[i]])
-        #plot_spec(fig,velo,spmsm,sppsm,vline=v_p,title=title0)
-        #plot_imag(fig,imag,mask2d,wcs,coor=(x_p,y_p),title=title1)
-        #fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
-        #plt.clf()
+            # Plot averaged and peaked spectrum of the structure
+            ax0.contour(mask2d,linewidths=2,levels=[0.001],alpha=0.8,colors=[colors[i]])
+            plot_spec(fig,velo,spmsm,sppsm,vline=v_p,title=title0)
+            plot_imag(fig,imag,mask2d,wcs,coor=(x_p,y_p),title=title1)
+            fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
+            plt.clf()
 
-
-    fig0.savefig('m0-leaves.png',dpi=300,format='png',bbox_inches='tight')
+    fig0.savefig('m0-branches.png',dpi=300,format='png',bbox_inches='tight')
 
     
     return 0
