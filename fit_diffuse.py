@@ -12,55 +12,77 @@ from matplotlib import pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import LogNorm
 
-def plot_spec(fig,x,ym,yp,ftsize='x-large',title=None,vline=None):
-    ax = fig.add_subplot(1,2,1)
+#def plot_spec(fig,x,ym,yp,ftsize='x-large',title=None,vline=None):
+#    ax = fig.add_subplot(1,2,1)
+#
+#    if vline is not None:
+#        ax.axvline(x[vline],lw=1.5,color='red')
+#
+#    ax.plot(x,yp,lw=0.5, label='peak')
+#    ax.plot(x,ym,'--',lw=1, label='average')
+#    ax.legend()
+#    ax.set_xlim(-200,250)
+#    #ax.set_ylim(-2.5,10.5)
+#    ax.set_xlabel('V$_{LSR}$ (km$\,$s$^{-1}$)',fontsize=ftsize)
+#    ax.set_ylabel('Flux (mJy$\,$beam$^{-1}$)',fontsize=ftsize)
+#    if title is not None:
+#        ax.set_title(title,fontsize=ftsize)
+#    return ax
+#
+#def plot_imag(fig,imag,mask,wcs,ftsize='x-large',coor=None,title=None):
+#    ax = fig.add_subplot(1,2,2,projection=wcs)
+#
+#    # ------------------------
+#    # Display the image
+#    im = ax.imshow(imag,origin='lower',interpolation='nearest',cmap='hot',\
+#            aspect='equal',vmin=0.)#,norm=LogNorm()) #,vmin=0.0005,vmax=0.005
+#    ax.contour(mask,linewidths=2,levels=[0.001],alpha=0.8,colors='grey')
+#    # ------------------------
+#    # coordinates
+#    ra = ax.coords['ra']
+#    de = ax.coords['dec']
+#    ra.set_axislabel('R.A.',minpad=0.5,size=ftsize)
+#    de.set_axislabel('Dec.',minpad=0.5,size=ftsize)
+#    ra.set_separator(('$\mathrm{^h}$','$\mathrm{^m}$'))
+#    ra.set_ticklabel(size=ftsize)
+#    de.set_ticklabel(size=ftsize)
+#    # ------------------------
+#    if title is not None:
+#        ax.set_title(title,fontsize=ftsize)
+#    if coor is not None:
+#        ax.plot(coor[0],coor[1],marker='*')
+#    cbar = ax.figure.colorbar(im)
+#    cbar.ax.set_ylabel('mJy$\,$beam$^{-1}$ km$\,$s$^{-1}$',fontsize=ftsize)
+#
+#    return ax
 
-    if vline is not None:
-        ax.axvline(x[vline],lw=1.5,color='red')
+def fill_image(image,order=1, axis=0):#shape (dec, ra)
 
-    ax.plot(x,yp,lw=0.5, label='peak')
-    ax.plot(x,ym,'--',lw=1, label='average')
-    ax.legend()
-    ax.set_xlim(-200,250)
-    #ax.set_ylim(-2.5,10.5)
-    ax.set_xlabel('V$_{LSR}$ (km$\,$s$^{-1}$)',fontsize=ftsize)
-    ax.set_ylabel('Flux (mJy$\,$beam$^{-1}$)',fontsize=ftsize)
-    if title is not None:
-        ax.set_title(title,fontsize=ftsize)
-    return ax
-
-def plot_imag(fig,imag,mask,wcs,ftsize='x-large',coor=None,title=None):
-    ax = fig.add_subplot(1,2,2,projection=wcs)
-
-    # ------------------------
-    # Display the image
-    im = ax.imshow(imag,origin='lower',interpolation='nearest',cmap='hot',\
-            aspect='equal',vmin=0.)#,norm=LogNorm()) #,vmin=0.0005,vmax=0.005
-    ax.contour(mask,linewidths=2,levels=[0.001],alpha=0.8,colors='grey')
-    # ------------------------
-    # coordinates
-    ra = ax.coords['ra']
-    de = ax.coords['dec']
-    ra.set_axislabel('R.A.',minpad=0.5,size=ftsize)
-    de.set_axislabel('Dec.',minpad=0.5,size=ftsize)
-    ra.set_separator(('$\mathrm{^h}$','$\mathrm{^m}$'))
-    ra.set_ticklabel(size=ftsize)
-    de.set_ticklabel(size=ftsize)
-    # ------------------------
-    if title is not None:
-        ax.set_title(title,fontsize=ftsize)
-    if coor is not None:
-        ax.plot(coor[0],coor[1],marker='*')
-    cbar = ax.figure.colorbar(im)
-    cbar.ax.set_ylabel('mJy$\,$beam$^{-1}$ km$\,$s$^{-1}$',fontsize=ftsize)
-
-    return ax
-
-def fill_image(image,order=1):
+    if axis > 1:
+        print('Axis must be 0 or 1')
+        return image
 
     # 2D interpolation
+    nrow = image.shape[axis]
 
-    return img_fit
+    for i in range(nrow):
+        if axis == 0:
+            y = image[:,i]
+        else:
+            y = image[i,:]
+
+        x = np.arange(y)
+        yp = y[np.where(y==y)]
+        xp = x[np.where(y==y)]
+
+        yfit = np.interp(x,xp,yp)
+
+        if axis == 0:
+            image[:,i] = yfit
+        else:
+            image[i,:] = yfit
+
+    return image
 
 def main(args):
     
@@ -68,11 +90,12 @@ def main(args):
     #    Load DataCube
     #%&%&%&%&%&%&%&%&%&%&%&%
     print('Load DataCube')
-    hdu = fits.open(args.fits_file)[0]
-    hdr = hdu.header
-    wcs = WCS(header=hdr).celestial
-    cube = hdu.data # shape: (CHAN, Dec(y), RA(x))
+    with fits.open(args.fits_file) as hdul:
+        hdr = hdul[0].header
+        cube = hdul[0].data # shape: (CHAN, Dec(y), RA(x))
+
     nchan = cube.shape[0]
+    wcs = WCS(header=hdr).celestial
     velo = (np.arange(nchan) - hdr['CRPIX3'] + 1) * hdr['CDELT3'] + hdr['CRVAL3']
     ny = cube.shape[1]
     nx = cube.shape[2]
@@ -100,15 +123,22 @@ def main(args):
         coor = SkyCoord.from_pixel(x_p,y_p,wcs)
         mask = leaf.get_mask()
         mask2d = mask.mean(axis=0)
-        maks_cube = cube[mask]
+        maks_cube[mask] = np.nan
 
     #%&%&%&%&%&%&%&%&%&%&%&%&%&%
     #     Intepolatation slice by slice
     #%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
     for i in range(nchan):
-        img = cube[i,:,:]
-        img_fit = fill_image(img, order=1)
+        img = mask_cube[i,:,:] # shape (chan, dec, ra)
+        img_fit_x = fill_image(img, order=1, axis=0)
+        img_fit_y = fill_image(img, order=1, axis=1)
+        img_fit = 0.5 * (img_fit_x + img_fit_y)
+        mask_cube[i,:,:] = img_fit
+
+    fits.writeto('fit_cube.fits',mask_cube, header=hdr)
+
+
 
 
   
@@ -167,8 +197,8 @@ def main(args):
 #            plot_imag(fig,imag,mask2d,wcs,coor=(x_p,y_p),title=title1)
 #            fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
 #            plt.clf()
-
-    fig0.savefig('m0-branches.png',dpi=300,format='png',bbox_inches='tight')
+#
+#    fig0.savefig('m0-branches.png',dpi=300,format='png',bbox_inches='tight')
 
     
     return 0
