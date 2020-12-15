@@ -64,6 +64,7 @@ def fill_image(image,order=1, axis=0):#shape (dec, ra)
 
     # 2D interpolation
     nrow = image.shape[axis]
+    img_fit = np.copy(image)
 
     for i in range(nrow):
         if axis == 0:
@@ -71,18 +72,18 @@ def fill_image(image,order=1, axis=0):#shape (dec, ra)
         else:
             y = image[i,:]
 
-        x = np.arange(y)
+        x = np.arange(y.shape[0])
         yp = y[np.where(y==y)]
         xp = x[np.where(y==y)]
 
         yfit = np.interp(x,xp,yp)
 
         if axis == 0:
-            image[:,i] = yfit
+            img_fit[:,i] = yfit
         else:
-            image[i,:] = yfit
+            img_fit[i,:] = yfit
 
-    return image
+    return img_fit
 
 def main(args):
     
@@ -112,6 +113,7 @@ def main(args):
 
 #   COPY the raw data
     mask_cube = np.copy(cube)
+    cut_cube = mask_cube[args.chan_0:args.chan_1,:,:]
 
     for i, leaf in enumerate(d.leaves):
         print(leaf.idx, 'of', len(d.leaves))
@@ -123,8 +125,9 @@ def main(args):
         coor = SkyCoord.from_pixel(x_p,y_p,wcs)
         mask = leaf.get_mask()
         mask2d = mask.mean(axis=0)
-        maks_cube[mask] = np.nan
+        cut_cube[mask] = np.nan
 
+    mask_cube[args.chan_0:args.chan_1,:,:] = cut_cube
     #%&%&%&%&%&%&%&%&%&%&%&%&%&%
     #     Intepolatation slice by slice
     #%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -136,7 +139,7 @@ def main(args):
         img_fit = 0.5 * (img_fit_x + img_fit_y)
         mask_cube[i,:,:] = img_fit
 
-    fits.writeto('fit_cube.fits',mask_cube, header=hdr)
+    fits.writeto('fit_cube.fits',mask_cube, header=hdr,overwrite=True)
 
 
 
