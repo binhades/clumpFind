@@ -125,10 +125,10 @@ def main(args):
         sppsm = smooth(spp,window_len=5) * 1000.
 
         ax0.contour(mask2d,linewidths=2,levels=[0.001],alpha=0.8,colors=[colors[i]])
-        #plot_spec(fig,velo,spmsm,sppsm,vline=v_p,title=title0)
-        #plot_imag(fig,imag,mask2d,wcs,coor=(x_p,y_p),title=title1)
-        #fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
-        #plt.clf()
+        plot_spec(fig,velo,spmsm,sppsm,vline=v_p,title=title0)
+        plot_imag(fig,imag,mask2d,wcs,coor=(x_p,y_p),title=title1)
+        fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
+        plt.clf()
 
 
     fig0.savefig('m0-leaves.png',dpi=300,format='png',bbox_inches='tight')
