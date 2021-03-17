@@ -3,6 +3,7 @@
 import argparse, os, time
 import numpy as np
 from toolkit import smooth
+from toolkit import colormap
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.visualization import simple_norm
@@ -29,20 +30,20 @@ def plot_spec(fig,x,ym,yp,ftsize='x-large',title=None,vline=None):
         ax.set_title(title,fontsize=ftsize)
     return ax
 
-def plot_imag(fig,imag,mask,wcs,ftsize='x-large',coor=None,title=None):
+def plot_imag(fig,imag,mask,wcs,ftsize='x-large',coor=None,title=None,cmap='hot'):
     ax = fig.add_subplot(1,2,2,projection=wcs)
 
     # ------------------------
     # Display the image
-    im = ax.imshow(imag,origin='lower',interpolation='nearest',cmap='hot',\
+    im = ax.imshow(imag,origin='lower',interpolation='nearest',cmap=colormap(cmap),\
             aspect='equal',vmin=0.)#,norm=LogNorm()) #,vmin=0.0005,vmax=0.005
     ax.contour(mask,linewidths=2,levels=[0.001],alpha=0.8,colors='grey')
     # ------------------------
     # coordinates
     ra = ax.coords['ra']
     de = ax.coords['dec']
-    ra.set_axislabel('R.A.',minpad=0.5,size=ftsize)
-    de.set_axislabel('Dec.',minpad=0.5,size=ftsize)
+    ra.set_axislabel('R.A. (J2000)',minpad=0.5,size=ftsize)
+    de.set_axislabel('Dec. (J2000)',minpad=0.5,size=ftsize)
     ra.set_separator(('$\mathrm{^h}$','$\mathrm{^m}$'))
     ra.set_ticklabel(size=ftsize)
     de.set_ticklabel(size=ftsize)
@@ -58,9 +59,9 @@ def plot_imag(fig,imag,mask,wcs,ftsize='x-large',coor=None,title=None):
 
 def main(args):
 
-    #%&%&%&%&%&%&%&%&%&%&%&%
+    #------------------------
     #    Load DataCube
-    #%&%&%&%&%&%&%&%&%&%&%&%
+    #------------------------
     print('Load DataCube')
     hdu = fits.open(args.fits_file)[0]
     hdr = hdu.header
@@ -71,32 +72,59 @@ def main(args):
     ny = data.shape[1]
     nx = data.shape[2]
 
-    #%&%&%&%&%&%&%&%&%&%&%&%
+    #------------------------
     #    Load dendrogram
-    #%&%&%&%&%&%&%&%&%&%&%&%
+    #------------------------
     print('Load Dendrogram')
     d = Dendrogram.load_from(args.file_d+'.hdf5')
    
-    #%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    #     Plot Leaves
-    #%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    print("Plot Leaves")
-
+    #------------------------
+    # Plot all leaves and branches on full frame of Moment0 map.
+    #------------------------
     imag0 = data[args.chan_0:args.chan_1,:,:].mean(axis=0)
     norm = simple_norm(imag0,stretch='asinh',asinh_a=0.18,min_percent=5,max_percent=100)
 
     fig0 = plt.figure(figsize=(8,8))
-    ax0 = fig0.add_subplot(1,1,1,projection=wcs)
-    im0 = ax0.imshow(imag0,origin='lower',interpolation='nearest',cmap='Greys_r',\
-            aspect='equal',norm=norm) #,vmin=0.0005,vmax=0.005
+    ax0  = fig0.add_subplot(1,1,1,projection=wcs)
+    im0 = ax0.imshow(imag0,origin='lower',interpolation='nearest',cmap=colormap(args.cmap),\
+            aspect='equal',norm=norm) 
+    ra0 = ax0.coords['ra']
+    de0 = ax0.coords['dec']
+    ra0.set_axislabel('R.A. (J2000)',minpad=0.5,size="xx-large")
+    de0.set_axislabel('Dec. (J2000)',minpad=0.5,size="xx-large")
+    ra0.set_separator(('$\mathrm{^h}$','$\mathrm{^m}$'))
+    ra0.set_ticklabel(size="xx-large")
+    de0.set_ticklabel(size="xx-large")
 
+    colors = ['blue','red','green']
+    c=1
+    for i, struc in enumerate(d.trunk):
+        if struc.is_leaf:
+            color = colors[0]
+            subtree = []
+            line = 'solid'
+        elif struc.is_branch: # branch
+            color=colors[c]
+            c=c+1
+            subtree = struc.descendants
+            line = 'dashed'
+
+        mask = struc.get_mask().mean(axis=0)
+        ax0.contour(mask,linewidths=1.5,levels=[0.001],alpha=0.8,colors=[color],linestyles=line)
+
+        for j, sub_struc in enumerate(subtree):
+            if sub_struc.is_leaf:
+                mask = sub_struc.get_mask().mean(axis=0)
+                ax0.contour(mask,linewidths=1.5,levels=[0.001],alpha=0.8,colors=[color])
+
+    fig0.savefig('m0-clumps_{}.png'.format(args.cmap),dpi=300,format='png',bbox_inches='tight')
+
+    # -------------------------------------------------------------------------
+    # Plot each leaf structure with its spectrum
+    # -------------------------------------------------------------------------
     fig = plt.figure(figsize=(12, 4))
-
-    c_interval = np.linspace(0,1,len(d.leaves))
-    colors = [cm.rainbow(x) for x in c_interval]
     for i, leaf in enumerate(d.leaves):
-        print(leaf.idx, 'of', len(d.leaves))
-        file_out = 'leaf'+str(leaf.idx)+'.png'
+        file_out = 'leaf_{:d}_{}.png'.format(leaf.idx,args.cmap)
         peak = leaf.get_peak()[0]
         v_p = args.chan_0+peak[0]
         x_p = peak[2]
@@ -105,7 +133,6 @@ def main(args):
         coor = SkyCoord.from_pixel(x_p,y_p,wcs)
         gc = coor.transform_to('galactic')
         equ_str = coor.to_string(style='hmsdms',precision=0)
-        #gal_str = gc.to_string(style='decimal',precision=2)
         gal_str = 'G{:5.2f}{:+5.2f}'.format(gc.l.value,gc.b.value)
         title0 = equ_str + ' @ '+str(velo[v_p]) + ' km/s'
         title1 = gal_str + ' @ '+str(velo[v_p]) + ' km/s'
@@ -124,14 +151,10 @@ def main(args):
         spmsm = smooth(spm,window_len=5) * 1000.
         sppsm = smooth(spp,window_len=5) * 1000.
 
-        ax0.contour(mask2d,linewidths=2,levels=[0.001],alpha=0.8,colors=[colors[i]])
-        #plot_spec(fig,velo,spmsm,sppsm,vline=v_p,title=title0)
-        #plot_imag(fig,imag,mask2d,wcs,coor=(x_p,y_p),title=title1)
-        #fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
-        #plt.clf()
-
-
-    fig0.savefig('m0-leaves.png',dpi=300,format='png',bbox_inches='tight')
+        plot_spec(fig,velo,spmsm,sppsm,vline=v_p,title=title0)
+        plot_imag(fig,imag,mask2d,wcs,coor=(x_p,y_p),title=title1,cmap=args.cmap)
+        fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
+        plt.clf()
 
     
     return 0
@@ -142,6 +165,7 @@ if __name__ == '__main__':
     parser.add_argument('--file_d', type=str, default='my_dendrogram', help='the dendrogram file')
     parser.add_argument('--chan_0', type=int, default=0,  help='channel index start')
     parser.add_argument('--chan_1', type=int, default=-1, help='channel index end')
+    parser.add_argument('--cmap', type=str, default='hot', help='the colormap, batlow or lajolla')
     args = parser.parse_args()
     start_time = time.time()
     main(args)
