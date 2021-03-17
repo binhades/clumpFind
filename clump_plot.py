@@ -57,6 +57,40 @@ def plot_imag(fig,imag,mask,wcs,ftsize='x-large',coor=None,title=None,cmap='hot'
 
     return ax
 
+def plot_struc(fig, file_out,struc,velo,wcs,hdr,data,nx,ny,nchan,cmap):
+    peak = struc.get_peak()[0]
+    v_p = args.chan_0+peak[0]
+    x_p = peak[2]
+    y_p = peak[1]
+
+    coor = SkyCoord.from_pixel(x_p,y_p,wcs)
+    gc = coor.transform_to('galactic')
+    equ_str = coor.to_string(style='hmsdms',precision=0)
+    gal_str = 'G{:5.2f}{:+5.2f}'.format(gc.l.value,gc.b.value)
+    title0 = equ_str + ' @ '+str(velo[v_p]) + ' km/s'
+    title1 = gal_str + ' @ '+str(velo[v_p]) + ' km/s'
+
+    imag  = data[v_p-2:v_p+2,:,:].sum(axis=0) * hdr['CDELT3'] * 1000
+
+    mask2d = struc.get_mask().mean(axis=0)
+    mask = np.zeros((ny,nx))
+    mask[np.where(mask2d==0)] = True
+    mask[np.where(mask2d!=0)] = False
+    mask3d = np.repeat(mask[np.newaxis,:,:],nchan,axis=0)
+
+    md = np.ma.masked_array(data,mask=mask3d)
+    spm = md.mean(axis=(1,2))
+    spp = data[:,y_p,x_p]
+    spmsm = smooth(spm,window_len=5) * 1000.
+    sppsm = smooth(spp,window_len=5) * 1000.
+
+    plot_spec(fig,velo,spmsm,sppsm,vline=v_p,title=title0)
+    plot_imag(fig,imag,mask2d,wcs,coor=(x_p,y_p),title=title1,cmap=cmap)
+    fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
+    plt.clf()
+
+    return fig
+
 def main(args):
 
     #------------------------
@@ -96,67 +130,36 @@ def main(args):
     ra0.set_ticklabel(size="xx-large")
     de0.set_ticklabel(size="xx-large")
 
+    fig1 = plt.figure(figsize=(12, 4))
+
     colors = ['blue','red','green']
     c=1
     for i, struc in enumerate(d.trunk):
         if struc.is_leaf:
+            file_out = 'leaf_{:d}_{}.png'.format(struc.idx,args.cmap)
             color = colors[0]
             subtree = []
             line = 'solid'
         elif struc.is_branch: # branch
+            file_out = 'branch_{:d}_{}.png'.format(struc.idx,args.cmap)
             color=colors[c]
             c=c+1
             subtree = struc.descendants
             line = 'dashed'
 
+        plot_struc(fig1,file_out,struc,velo,wcs,hdr,data,nx,ny,nchan,args.cmap)
         mask = struc.get_mask().mean(axis=0)
         ax0.contour(mask,linewidths=1.5,levels=[0.001],alpha=0.8,colors=[color],linestyles=line)
 
         for j, sub_struc in enumerate(subtree):
             if sub_struc.is_leaf:
+                file_out = 'leaf_{:d}_{}.png'.format(sub_struc.idx,args.cmap)
+                plot_struc(fig1,file_out,sub_struc,velo,wcs,hdr,data,nx,ny,nchan,args.cmap)
                 mask = sub_struc.get_mask().mean(axis=0)
                 ax0.contour(mask,linewidths=1.5,levels=[0.001],alpha=0.8,colors=[color])
 
     fig0.savefig('m0-clumps_{}.png'.format(args.cmap),dpi=300,format='png',bbox_inches='tight')
 
-    # -------------------------------------------------------------------------
-    # Plot each leaf structure with its spectrum
-    # -------------------------------------------------------------------------
-    fig = plt.figure(figsize=(12, 4))
-    for i, leaf in enumerate(d.leaves):
-        file_out = 'leaf_{:d}_{}.png'.format(leaf.idx,args.cmap)
-        peak = leaf.get_peak()[0]
-        v_p = args.chan_0+peak[0]
-        x_p = peak[2]
-        y_p = peak[1]
-
-        coor = SkyCoord.from_pixel(x_p,y_p,wcs)
-        gc = coor.transform_to('galactic')
-        equ_str = coor.to_string(style='hmsdms',precision=0)
-        gal_str = 'G{:5.2f}{:+5.2f}'.format(gc.l.value,gc.b.value)
-        title0 = equ_str + ' @ '+str(velo[v_p]) + ' km/s'
-        title1 = gal_str + ' @ '+str(velo[v_p]) + ' km/s'
-
-        imag  = data[v_p-2:v_p+2,:,:].sum(axis=0) * hdr['CDELT3'] * 1000
-
-        mask2d = leaf.get_mask().mean(axis=0)
-        mask = np.zeros((ny,nx))
-        mask[np.where(mask2d==0)] = True
-        mask[np.where(mask2d!=0)] = False
-        mask3d = np.repeat(mask[np.newaxis,:,:],nchan,axis=0)
-
-        md = np.ma.masked_array(data,mask=mask3d)
-        spm = md.mean(axis=(1,2))
-        spp = data[:,y_p,x_p]
-        spmsm = smooth(spm,window_len=5) * 1000.
-        sppsm = smooth(spp,window_len=5) * 1000.
-
-        plot_spec(fig,velo,spmsm,sppsm,vline=v_p,title=title0)
-        plot_imag(fig,imag,mask2d,wcs,coor=(x_p,y_p),title=title1,cmap=args.cmap)
-        fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
-        plt.clf()
-
-    
     return 0
 
 if __name__ == '__main__':
