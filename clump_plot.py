@@ -18,10 +18,10 @@ def plot_spec(fig,x,ym,yp,ftsize='x-large',title=None,vline=None):
     ax = fig.add_subplot(1,2,1)
 
     if vline is not None:
-        ax.axvline(x[vline],lw=1.5,color='red')
+        ax.axvline(x[vline],lw=0.5,color='red')
 
-    ax.plot(x,yp,lw=0.5, label='peak')
-    ax.plot(x,ym,'--',lw=1, label='average')
+    ax.plot(x,yp,lw=1, label='peak')
+    ax.plot(x,ym,'--',lw=1.5, label='average')
     ax.legend()
     ax.set_xlim(-200,250)
     #ax.set_ylim(-2.5,10.5)
@@ -71,7 +71,7 @@ def plot_struc(fig, file_out,struc,velo,wcs,hdr,data,nx,ny,nchan,cmap,leaf_label
     title0 = 'Index: {:d} @ Velo: {:4.1f} km/s'.format(leaf_label,velo[v_p])
 
     gal_str = 'G{:5.2f}{:+5.2f}'.format(gc.l.value,gc.b.value)
-    title1 = gal_str + ' @ '+str(velo[v_p]) + ' km/s'
+    title1 = '{} @ Velo: {:4.1f} km/s'.format(gal_str,velo[v_p])
 
     imag  = data[v_p-2:v_p+2,:,:].sum(axis=0) * hdr['CDELT3'] * 1000
 
