@@ -58,7 +58,7 @@ def plot_imag(fig,imag,mask,wcs,ftsize='x-large',coor=None,title=None,cmap='hot'
 
     return ax
 
-def plot_struc(fig, file_out,struc,velo,wcs,hdr,data,nx,ny,nchan,cmap):
+def plot_struc(fig, file_out,struc,velo,wcs,hdr,data,nx,ny,nchan,cmap,leaf_label):
     peak = struc.get_peak()[0]
     x_p = peak[2]
     y_p = peak[1]
@@ -66,9 +66,11 @@ def plot_struc(fig, file_out,struc,velo,wcs,hdr,data,nx,ny,nchan,cmap):
 
     coor = SkyCoord.from_pixel(x_p,y_p,wcs)
     gc = coor.transform_to('galactic')
-    equ_str = coor.to_string(style='hmsdms',precision=0)
+    #equ_str = coor.to_string(style='hmsdms',precision=0)
+    #title0 = equ_str + ' @ '+str(velo[v_p]) + ' km/s'
+    title0 = 'Index: {:d} @ Velo: {:4.1f} km/s'.format(leaf_label,velo[v_p])
+
     gal_str = 'G{:5.2f}{:+5.2f}'.format(gc.l.value,gc.b.value)
-    title0 = equ_str + ' @ '+str(velo[v_p]) + ' km/s'
     title1 = gal_str + ' @ '+str(velo[v_p]) + ' km/s'
 
     imag  = data[v_p-2:v_p+2,:,:].sum(axis=0) * hdr['CDELT3'] * 1000
@@ -176,7 +178,7 @@ def main(args):
             line = 'dashed'
 
         if args.plot_spec:
-            plot_struc(fig1,file_out,struc,velo,wcs,hdr,data,nx,ny,nchan,args.cmap)
+            plot_struc(fig1,file_out,struc,velo,wcs,hdr,data,nx,ny,nchan,args.cmap,leaf_label)
         mask = struc.get_mask().mean(axis=0)
         ax0.contour(mask,linewidths=1.5,levels=[0.001],alpha=0.8,colors=[color],linestyles=line)
 
@@ -185,7 +187,7 @@ def main(args):
                 leaf_label = add_leaf_label(ax0,leaves_idx_arr,sub_struc)
                 file_out = 'leaf_{:d}_{}.png'.format(leaf_label,args.cmap)
                 if args.plot_spec:
-                    plot_struc(fig1,file_out,sub_struc,velo,wcs,hdr,data,nx,ny,nchan,args.cmap)
+                    plot_struc(fig1,file_out,sub_struc,velo,wcs,hdr,data,nx,ny,nchan,args.cmap,leaf_label)
                 mask = sub_struc.get_mask().mean(axis=0)
                 ax0.contour(mask,linewidths=1.5,levels=[0.001],alpha=0.8,colors=[color])
 
