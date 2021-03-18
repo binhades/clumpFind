@@ -2,7 +2,7 @@
 
 import argparse, os, time
 import numpy as np
-from toolkit import smooth
+from toolkit import smooth, vlsr_distance
 from pyrrl.spec import fit
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -65,6 +65,8 @@ def main(args):
         mask[np.where(mask2d!=0)] = False
         mask3d = np.repeat(mask[np.newaxis,:,:],nchan,axis=0)
 
+        size = np.where(mask2d>0)[0].shape[0]
+
         md = np.ma.masked_array(data,mask=mask3d)
         spm = md.sum(axis=(1,2))
         spp = data[:,y_p,x_p]
@@ -72,10 +74,8 @@ def main(args):
         sppsm = smooth(spp,window_len=5)
 
         yfit,peak,vlsr,fwhm,err1,err2,err3 = fit(velo,spmsm,paras=[spmsm[v_p],velo[v_p],15.])
-        print("{index:02d} {Gname} {Coor} {peak:5.2f}$\pm${perr:4.2f} \
-                {vlsr:4.1f}$\pm${verr:3.1f} {fwhm:4.1f}$\pm${werr:3.1f} \
-                {integ:8.3f} {area:f}".format(leaf_label,gal_str,equ_str,peak,err1,\
-                vlsr,err2,fwhm,err3,peak*fwhm,leaf.get_npix()))
+        d_far,d_near = vlsr_distance(gc.l.value,vlsr)
+        print("{index:02d} {Gname} {Coor} {peak:5.2f}$\pm${perr:4.2f} {vlsr:4.1f}$\pm${verr:3.1f} {fwhm:4.1f}$\pm${werr:3.1f} {integ:8.2f} {area:3d} {d1:4.1f} {d2:4.1f}".format(index=leaf_label,Gname=gal_str,Coor=equ_str,peak=peak,perr=err1,vlsr=vlsr,verr=err2,fwhm=fwhm,werr=err3,integ=peak*fwhm,area=size,d1=d_far,d2=d_near))
 
 
     return 0
