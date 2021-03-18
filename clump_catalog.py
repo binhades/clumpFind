@@ -11,10 +11,9 @@ from astropy.coordinates import SkyCoord
 from astrodendro import Dendrogram, ppv_catalog
 
 def main(args):
-
-    #%&%&%&%&%&%&%&%&%&%&%&%
+    # -------------------------------------------
     #    Load DataCube
-    #%&%&%&%&%&%&%&%&%&%&%&%
+    # -------------------------------------------
     print('Load DataCube')
     hdu = fits.open(args.fits_file)[0]
     hdr = hdu.header
@@ -25,12 +24,11 @@ def main(args):
     ny = data.shape[1]
     nx = data.shape[2]
 
-    #%&%&%&%&%&%&%&%&%&%&%&%
+    # -------------------------------------------
     #    Load dendrogram
-    #%&%&%&%&%&%&%&%&%&%&%&%
+    # -------------------------------------------
     print('Load Dendrogram')
     d = Dendrogram.load_from(args.file_d+'.hdf5')
-
     # ------------------------
     # leaf label
     list_idx = [] # raw index
