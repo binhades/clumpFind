@@ -43,9 +43,6 @@ def main(args):
     peak_ind = np.argsort(np.array(list_peak))[::-1]
     leaves_idx_arr = np.array(list_idx)[peak_ind]
     print('')
-    print(peak_ind)
-    print(list_idx)
-    print(leaves_idx_arr)
     # ------------------------
     for i in range(len(d.leaves)):
         ind = peak_ind[i]
@@ -77,7 +74,10 @@ def main(args):
         sppsm = smooth(spp,window_len=5)
 
         yfit,peak,vlsr,fwhm,err1,err2,err3 = fit(velo,spmsm,paras=[spmsm[v_p],velo[v_p],15.])
-        print("{:02d} {} {:5.2f}$\pm${:4.2f} {:4.1f}$\pm${:3.1f} {:4.1f}$\pm${:3.1f} {:8.3f}".format(leaf_label, gal_str,peak,err1,vlsr,err2,fwhm,err3,peak*fwhm))
+        print("{index:02d} {Gname} {Coor} {peak:5.2f}$\pm${perr:4.2f} \
+                {vlsr:4.1f}$\pm${verr:3.1f} {fwhm:4.1f}$\pm${werr:3.1f} \
+                {integ:8.3f} {area:f}".format(leaf_label,gal_str,equ_str,peak,err1,\
+                vlsr,err2,fwhm,err3,peak*fwhm,leaf.get_npix()))
 
 
     return 0
