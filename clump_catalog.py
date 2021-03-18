@@ -9,57 +9,6 @@ from astropy.wcs import WCS
 from astropy.visualization import simple_norm
 from astropy.coordinates import SkyCoord
 from astrodendro import Dendrogram, ppv_catalog
-from matplotlib import pyplot as plt
-from matplotlib import cm
-from matplotlib.colors import LogNorm
-
-def plot_spec(x,ym,yp,ftsize='x-large',title=None,vline=None):
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
-
-    if vline is not None:
-        ax.axvline(x[vline],lw=1.5,color='red')
-
-    ax.plot(x,yp,lw=0.5, label='peak')
-    ax.plot(x,ym,'--',lw=1, label='average')
-    ax.legend()
-    ax.set_xlim(-200,250)
-    #ax.set_ylim(-2.5,10.5)
-    ax.set_xlabel('V$_{LSR}$ (km$\,$s$^{-1}$)',fontsize=ftsize)
-    ax.set_ylabel('Flux (mJy$\,$beam$^{-1}$)',fontsize=ftsize)
-    if title is not None:
-        ax.set_title(title,fontsize=ftsize)
-
-    plt.show()
-    plt.close(fig)
-    return ax
-
-def plot_imag(fig,imag,mask,wcs,ftsize='x-large',coor=None,title=None):
-    ax = fig.add_subplot(1,2,2,projection=wcs)
-
-    # ------------------------
-    # Display the image
-    im = ax.imshow(imag,origin='lower',interpolation='nearest',cmap='hot',\
-            aspect='equal',vmin=0.)#,norm=LogNorm()) #,vmin=0.0005,vmax=0.005
-    ax.contour(mask,linewidths=2,levels=[0.001],alpha=0.8,colors='grey')
-    # ------------------------
-    # coordinates
-    ra = ax.coords['ra']
-    de = ax.coords['dec']
-    ra.set_axislabel('R.A.',minpad=0.5,size=ftsize)
-    de.set_axislabel('Dec.',minpad=0.5,size=ftsize)
-    ra.set_separator(('$\mathrm{^h}$','$\mathrm{^m}$'))
-    ra.set_ticklabel(size=ftsize)
-    de.set_ticklabel(size=ftsize)
-    # ------------------------
-    if title is not None:
-        ax.set_title(title,fontsize=ftsize)
-    if coor is not None:
-        ax.plot(coor[0],coor[1],marker='*')
-    cbar = ax.figure.colorbar(im)
-    cbar.ax.set_ylabel('mJy$\,$beam$^{-1}$ km$\,$s$^{-1}$',fontsize=ftsize)
-
-    return ax
 
 def main(args):
 
@@ -81,14 +30,29 @@ def main(args):
     #%&%&%&%&%&%&%&%&%&%&%&%
     print('Load Dendrogram')
     d = Dendrogram.load_from(args.file_d+'.hdf5')
-   
-    #%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    #     Plot Leaves
-    #%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    print("Plot Leaves")
 
-    for i, leaf in enumerate(d.leaves):
-        #print(leaf.idx, 'of', len(d.leaves))
+    # ------------------------
+    # leaf label
+    list_idx = [] # raw index
+    list_idv = [] # sorted index
+    list_peak= [] # raw peaks
+    for i, struc in enumerate(d.leaves):
+        peak = struc.get_peak()[1]
+        list_peak.append(peak)
+        list_idx.append(struc.idx)
+    peak_ind = np.argsort(np.array(list_peak))[::-1]
+    leaves_idx_arr = np.array(list_idx)[peak_ind]
+    print('')
+    print(peak_ind)
+    print(list_idx)
+    print(leaves_idx_arr)
+    # ------------------------
+    for i in range(len(d.leaves)):
+        ind = peak_ind[i]
+        leaf = d.leaves[ind]
+        leaf_label = np.argwhere(leaves_idx_arr == leaf.idx)[0][0]+1
+        #leaf_label = leaf.idx
+
         file_out = 'leaf'+str(leaf.idx)+'.png'
         peak = leaf.get_peak()[0]
         v_p = args.chan_0+peak[0]
@@ -99,10 +63,6 @@ def main(args):
         gc = coor.transform_to('galactic')
         equ_str = coor.to_string(style='hmsdms',precision=0)
         gal_str = 'G{:5.2f}{:+5.2f}'.format(gc.l.value,gc.b.value)
-        title0 = equ_str + ' @ '+str(velo[v_p]) + ' km/s'
-        title1 = gal_str + ' @ '+str(velo[v_p]) + ' km/s'
-
-        imag  = data[v_p-2:v_p+2,:,:].sum(axis=0) * hdr['CDELT3']
 
         mask2d = leaf.get_mask().mean(axis=0)
         mask = np.zeros((ny,nx))
@@ -117,15 +77,9 @@ def main(args):
         sppsm = smooth(spp,window_len=5)
 
         yfit,peak,vlsr,fwhm,err1,err2,err3 = fit(velo,spmsm,paras=[spmsm[v_p],velo[v_p],15.])
-        print("{} {:5.2f}$\pm${:4.2f} {:4.1f}$\pm${:3.1f} {:4.1f}$\pm${:3.1f} {:8.3f}".format(gal_str,peak,err1,vlsr,err2,fwhm,err3,peak*fwhm))
+        print("{:02d} {} {:5.2f}$\pm${:4.2f} {:4.1f}$\pm${:3.1f} {:4.1f}$\pm${:3.1f} {:8.3f}".format(leaf_label, gal_str,peak,err1,vlsr,err2,fwhm,err3,peak*fwhm))
 
 
-        #plot_spec(velo,yfit,spmsm,title=title0)
-        #plot_imag(fig,imag,mask2d,wcs,coor=(x_p,y_p),title=title1)
-        #fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
-
-
-    
     return 0
 
 if __name__ == '__main__':
