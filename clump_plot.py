@@ -11,6 +11,7 @@ from astropy.coordinates import SkyCoord
 from astrodendro import Dendrogram, ppv_catalog
 from matplotlib import pyplot as plt
 from matplotlib import cm
+import matplotlib.patches as patches
 from matplotlib.colors import LogNorm
 
 def plot_spec(fig,x,ym,yp,ftsize='x-large',title=None,vline=None):
@@ -59,9 +60,9 @@ def plot_imag(fig,imag,mask,wcs,ftsize='x-large',coor=None,title=None,cmap='hot'
 
 def plot_struc(fig, file_out,struc,velo,wcs,hdr,data,nx,ny,nchan,cmap):
     peak = struc.get_peak()[0]
-    v_p = args.chan_0+peak[0]
     x_p = peak[2]
     y_p = peak[1]
+    v_p = args.chan_0+peak[0]
 
     coor = SkyCoord.from_pixel(x_p,y_p,wcs)
     gc = coor.transform_to('galactic')
@@ -90,6 +91,15 @@ def plot_struc(fig, file_out,struc,velo,wcs,hdr,data,nx,ny,nchan,cmap):
     plt.clf()
 
     return fig
+def add_leaf_label(ax, idx_arr, struc):
+    leaf_label = np.argwhere(idx_arr == struc.idx)[0][0]+1
+    peak = struc.get_peak()[0]
+    x_p = peak[2]
+    y_p = peak[1]
+    ax.text(x_p,y_p,str(leaf_label),fontsize='x-large',color='k')
+
+    return leaf_label
+
 
 def main(args):
 
@@ -122,6 +132,7 @@ def main(args):
     ax0  = fig0.add_subplot(1,1,1,projection=wcs)
     im0 = ax0.imshow(imag0,origin='lower',interpolation='nearest',cmap=colormap(args.cmap),\
             aspect='equal',norm=norm) 
+    # coordinates
     ra0 = ax0.coords['ra']
     de0 = ax0.coords['dec']
     ra0.set_axislabel('R.A. (J2000)',minpad=0.5,size="xx-large")
@@ -129,6 +140,22 @@ def main(args):
     ra0.set_separator(('$\mathrm{^h}$','$\mathrm{^m}$'))
     ra0.set_ticklabel(size="xx-large")
     de0.set_ticklabel(size="xx-large")
+    # beam
+    if args.beam is not None:
+        beam = patches.Circle((5,5),radius=args.beam/2,edgecolor='k',facecolor='w',alpha=0.5) # pixel coordinates
+        ax0.add_patch(beam)
+    # ------------------------
+    # leaf label
+    list_idx = [] # raw index
+    list_idv = [] # sorted index
+    list_peak= [] # raw peaks
+    for i, struc in enumerate(d.leaves):
+        peak = struc.get_peak()[1]
+        list_peak.append(peak)
+        list_idx.append(struc.idx)
+    peak_ind = np.argsort(np.array(list_peak))[::-1]
+    leaves_idx_arr = np.array(list_idx)[peak_ind]
+    # ------------------------
 
     fig1 = plt.figure(figsize=(12, 4))
 
@@ -136,7 +163,8 @@ def main(args):
     c=1
     for i, struc in enumerate(d.trunk):
         if struc.is_leaf:
-            file_out = 'leaf_{:d}_{}.png'.format(struc.idx,args.cmap)
+            leaf_label = add_leaf_label(ax0,leaves_idx_arr,struc)
+            file_out = 'leaf_{:d}_{}.png'.format(leaf_label,args.cmap)
             color = colors[0]
             subtree = []
             line = 'solid'
@@ -147,14 +175,17 @@ def main(args):
             subtree = struc.descendants
             line = 'dashed'
 
-        plot_struc(fig1,file_out,struc,velo,wcs,hdr,data,nx,ny,nchan,args.cmap)
+        if args.plot_spec:
+            plot_struc(fig1,file_out,struc,velo,wcs,hdr,data,nx,ny,nchan,args.cmap)
         mask = struc.get_mask().mean(axis=0)
         ax0.contour(mask,linewidths=1.5,levels=[0.001],alpha=0.8,colors=[color],linestyles=line)
 
         for j, sub_struc in enumerate(subtree):
             if sub_struc.is_leaf:
-                file_out = 'leaf_{:d}_{}.png'.format(sub_struc.idx,args.cmap)
-                plot_struc(fig1,file_out,sub_struc,velo,wcs,hdr,data,nx,ny,nchan,args.cmap)
+                leaf_label = add_leaf_label(ax0,leaves_idx_arr,sub_struc)
+                file_out = 'leaf_{:d}_{}.png'.format(leaf_label,args.cmap)
+                if args.plot_spec:
+                    plot_struc(fig1,file_out,sub_struc,velo,wcs,hdr,data,nx,ny,nchan,args.cmap)
                 mask = sub_struc.get_mask().mean(axis=0)
                 ax0.contour(mask,linewidths=1.5,levels=[0.001],alpha=0.8,colors=[color])
 
@@ -169,6 +200,8 @@ if __name__ == '__main__':
     parser.add_argument('--chan_0', type=int, default=0,  help='channel index start')
     parser.add_argument('--chan_1', type=int, default=-1, help='channel index end')
     parser.add_argument('--cmap', type=str, default='hot', help='the colormap, batlow or lajolla')
+    parser.add_argument('--plot_spec', action='store_true', help='set to plot spectra of individual leaves')
+    parser.add_argument('--beam', type=float, help='set to add beam to image, size in pixel. 4.7 for FAST rrl cube')
     args = parser.parse_args()
     start_time = time.time()
     main(args)
