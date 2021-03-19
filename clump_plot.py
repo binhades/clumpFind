@@ -84,8 +84,8 @@ def plot_struc(fig, file_out,struc,velo,wcs,hdr,data,nx,ny,nchan,cmap,leaf_label
     md = np.ma.masked_array(data,mask=mask3d)
     spm = md.mean(axis=(1,2))
     spp = data[:,y_p,x_p]
-    spmsm = smooth(spm,window_len=5) * 1000.
-    sppsm = smooth(spp,window_len=5) * 1000.
+    spmsm = smooth(spm,window_len=5)
+    sppsm = smooth(spp,window_len=5)
 
     plot_spec(fig,velo,spmsm,sppsm,vline=v_p,title=title0)
     plot_imag(fig,imag,mask2d,wcs,coor=(x_p,y_p),title=title1,cmap=cmap)
@@ -117,6 +117,12 @@ def main(args):
     velo = (np.arange(nchan) - hdr['CRPIX3'] + 1) * hdr['CDELT3'] + hdr['CRVAL3']
     ny = data.shape[1]
     nx = data.shape[2]
+
+    # unit convert: Jy/beam -> mJy/pix
+    beam = 4.7 # arcmin
+    pix = 1.0 # arcmin
+    pix_over_beam = pix**2/((beam/2)**2*np.pi)
+    data = data * 1000 * pix_over_beam # x Jy/beam = (x * pix/beam) Jy/pix
 
     #------------------------
     #    Load dendrogram

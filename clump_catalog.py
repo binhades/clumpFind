@@ -18,11 +18,18 @@ def main(args):
     hdu = fits.open(args.fits_file)[0]
     hdr = hdu.header
     wcs = WCS(header=hdr).celestial
-    data = hdu.data * 0.05764 * 1000 # unit convert: Jy/beam -> mJy/pixel
+    data = hdu.data
     nchan = data.shape[0]
     velo = (np.arange(nchan) - hdr['CRPIX3'] + 1) * hdr['CDELT3'] + hdr['CRVAL3']
     ny = data.shape[1]
     nx = data.shape[2]
+
+    # unit convert: Jy/beam -> mJy/pixel
+    beam=4.7 # arcmin
+    pix = 1.0 # arcmin
+    pix_over_beam = pix**2/((beam/2)**2*np.pi)
+    print(pix_over_beam)
+    data = data * 1000 * pix_over_beam # x Jy/beam = (x * pix/beam) Jy/pix 
 
     # -------------------------------------------
     #    Load dendrogram
@@ -93,8 +100,6 @@ def main(args):
             writer.writerow(row)
     if args.file_csv is not None:
         fcsv.close()
-
-
 
     return 0
 
