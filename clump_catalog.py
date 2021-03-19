@@ -51,9 +51,9 @@ def main(args):
     if args.file_csv is not None:
         import csv
         fcsv = open(args.file_csv,'w')
-        fieldnames = ['Index', 'GName', 'Coordinate', 'Peak', 'Peak_err',\
-                      'Vlsr', 'vlsr_err', 'fwhm', 'fwhm_err', 'Flux_int',\
-                      'Area', 'D_far', 'D_near']
+        fieldnames = ['Index', 'GName', 'GLon', 'GLat', 'Coordinate', \
+                      'Peak', 'Peak_err', 'VLSR', 'VLSR_err', 'FWHM', 'FWHM_err',\
+                      'Flux_int', 'Area', 'D_far', 'D_near']
         writer = csv.DictWriter(fcsv,fieldnames=fieldnames,quoting=csv.QUOTE_NONE)
         writer.writeheader()
     # ------------------------
@@ -70,8 +70,8 @@ def main(args):
         y_p = peak[1]
 
         coor = SkyCoord.from_pixel(x_p,y_p,wcs)
-        gc = coor.transform_to('galactic')
         equ_str = coor.to_string(style='hmsdms',precision=0)
+        gc = coor.transform_to('galactic')
         gal_str = 'G{:5.2f}{:+5.2f}'.format(gc.l.value,gc.b.value)
 
         mask2d = leaf.get_mask().mean(axis=0)
@@ -92,9 +92,10 @@ def main(args):
         d_far,d_near = vlsr_distance(gc.l.value,vlsr)
         print("{index:02d} {Gname} {Coor} {peak:5.2f}$\pm${perr:4.2f} {vlsr:4.1f}$\pm${verr:3.1f} {fwhm:4.1f}$\pm${werr:3.1f} {integ:8.2f} {area:3d} {d1:4.1f} {d2:4.1f}".format(index=leaf_label,Gname=gal_str,Coor=equ_str,peak=peak,perr=err1,vlsr=vlsr,verr=err2,fwhm=fwhm,werr=err3,integ=peak*fwhm,area=size,d1=d_far,d2=d_near))
         if args.file_csv is not None:
-            row = {'Index':leaf_label, 'GName':gal_str, 'Coordinate':equ_str,\
-                    'Peak':peak, 'Peak_err':err1,'Vlsr':vlsr, 'vlsr_err':err2,\
-                    'fwhm':fwhm, 'fwhm_err':err3, 'Flux_int':peak*fwhm,\
+            row = {'Index':leaf_label, 'GName':gal_str,\
+                    'GLon':gc.l.value, 'GLat':gc.b.value,'Coordinate':equ_str,\
+                    'Peak':peak, 'Peak_err':err1,'VLSR':vlsr, 'VLSR_err':err2,\
+                    'FWHM':fwhm, 'FWHM_err':err3, 'Flux_int':peak*fwhm,\
                     'Area':size, 'D_far':d_far, 'D_near':d_near}
 
             writer.writerow(row)
