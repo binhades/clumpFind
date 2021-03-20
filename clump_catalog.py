@@ -9,6 +9,31 @@ from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
 from astrodendro import Dendrogram
 
+def struc_spec(struc,data,velo,chan0,nchan,nx,ny,wbounds=[8.0,29.0]):
+    peak = struc.get_peak()[0]
+    x_p = peak[2]
+    y_p = peak[1]
+    v_p = chan0+peak[0]
+
+
+    mask2d = struc.get_mask().mean(axis=0)
+    mask = np.zeros((ny,nx))
+    mask[np.where(mask2d==0)] = True
+    mask[np.where(mask2d!=0)] = False
+    mask3d = np.repeat(mask[np.newaxis,:,:],nchan,axis=0)
+
+    size = np.where(mask2d>0)[0].shape[0]
+    md = np.ma.masked_array(data,mask=mask3d)
+    sps = md.sum(axis=(1,2))
+    spp = data[:,y_p,x_p]
+
+    sp_peak = smooth(spp,window_len=5) # spectrum - peak - smooth
+    sp_sum = smooth(sps,window_len=5) # spectrum - sum - smooth
+    sp_fit,peak,vlsr,fwhm,e1,e2,e3 = fit(velo,sps,init=[sp_sum[v_p],velo[v_p],15],\
+            vbounds=[velo[v_p]-5,velo[v_p]+5],wbounds=wbounds)
+
+    return peak, vlsr, fwhm, e1,e2,e3, size
+
 def main(args):
     # -------------------------------------------
     #    Load DataCube
@@ -23,20 +48,23 @@ def main(args):
     ny = data.shape[1]
     nx = data.shape[2]
 
-    # unit convert: Jy/beam -> mJy/pixel
-    beam=4.7 # arcmin
+    # ------------------------
+    # unit convert: Jy/beam -> mJy/pix
+    # ------------------------
+    beam = 4.7 # arcmin
     pix = 1.0 # arcmin
     pix_over_beam = pix**2/((beam/2)**2*np.pi)
-    print(pix_over_beam)
-    data = data * 1000 * pix_over_beam # x Jy/beam = (x * pix/beam) Jy/pix 
+    data = data * 1000 * pix_over_beam # x Jy/beam = (x * pix/beam) Jy/pix
 
-    # -------------------------------------------
+    #------------------------
     #    Load dendrogram
-    # -------------------------------------------
+    #------------------------
     print('Load Dendrogram')
     d = Dendrogram.load_from(args.file_d+'.hdf5')
+    print('')
     # ------------------------
     # leaf label
+    # ------------------------
     list_idx = [] # raw index
     list_idv = [] # sorted index
     list_peak= [] # raw peaks
@@ -46,7 +74,9 @@ def main(args):
         list_idx.append(struc.idx)
     peak_ind = np.argsort(np.array(list_peak))[::-1]
     leaves_idx_arr = np.array(list_idx)[peak_ind]
-    print('')
+    # ------------------------
+    # init CSV 
+    # ------------------------
     if args.file_csv is not None:
         import csv
         fcsv = open(args.file_csv,'w')
@@ -58,12 +88,9 @@ def main(args):
     # ------------------------
     for i in range(len(d.leaves)):
         ind = peak_ind[i]
-        leaf = d.leaves[ind]
-        leaf_label = np.argwhere(leaves_idx_arr == leaf.idx)[0][0]+1
-        #leaf_label = leaf.idx
-
-        file_out = 'leaf'+str(leaf.idx)+'.png'
-        peak = leaf.get_peak()[0]
+        struc = d.leaves[ind]
+        leaf_label = np.argwhere(leaves_idx_arr == struc.idx)[0][0]+1
+        peak = struc.get_peak()[0]
         v_p = args.chan_0+peak[0]
         x_p = peak[2]
         y_p = peak[1]
@@ -73,21 +100,13 @@ def main(args):
         gc = coor.transform_to('galactic')
         gal_str = 'G{:5.2f}{:+5.2f}'.format(gc.l.value,gc.b.value)
 
-        mask2d = leaf.get_mask().mean(axis=0)
-        mask = np.zeros((ny,nx))
-        mask[np.where(mask2d==0)] = True
-        mask[np.where(mask2d!=0)] = False
-        mask3d = np.repeat(mask[np.newaxis,:,:],nchan,axis=0)
+        if struc.idx == 30:
+            wbounds = [10,30]
+        else:
+            wbounds = [5,30]
 
-        size = np.where(mask2d>0)[0].shape[0]
+        peak,vlsr,fwhm,err1,err2,err3,size = struc_spec(struc,data,velo,args.chan_0,nchan,nx,ny,wbounds=wbounds)
 
-        md = np.ma.masked_array(data,mask=mask3d)
-        spm = md.sum(axis=(1,2))
-        spp = data[:,y_p,x_p]
-        spmsm = smooth(spm,window_len=5)
-        sppsm = smooth(spp,window_len=5)
-
-        yfit,peak,vlsr,fwhm,err1,err2,err3 = fit(velo,spmsm,paras=[spmsm[v_p],velo[v_p],15.])
         d_far,d_near = vlsr_distance(gc.l.value,vlsr)
         print("{index:02d} {Gname} {Coor} {peak:5.2f}$\pm${perr:4.2f} {vlsr:4.1f}$\pm${verr:3.1f} {fwhm:4.1f}$\pm${werr:3.1f} {integ:8.2f} {area:3d} {d1:4.1f} {d2:4.1f}".format(index=leaf_label,Gname=gal_str,Coor=equ_str,peak=peak,perr=err1,vlsr=vlsr,verr=err2,fwhm=fwhm,werr=err3,integ=peak*fwhm,area=size,d1=d_far,d2=d_near))
         if args.file_csv is not None:
@@ -114,3 +133,5 @@ if __name__ == '__main__':
     start_time = time.time()
     main(args)
     print("--- {:.3f} seconds ---".format(time.time() - start_time))
+
+
