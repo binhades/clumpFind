@@ -9,7 +9,7 @@ from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
 from astrodendro import Dendrogram
 
-def struc_spec(struc,data,velo,chan0,nchan,nx,ny,wbounds=[8.0,29.0]):
+def struc_spec(struc,data,velo,chan0,nchan,nx,ny,wbounds=[8.0,29.0],method='sum'):
     peak = struc.get_peak()[0]
     x_p = peak[2]
     y_p = peak[1]
@@ -25,11 +25,20 @@ def struc_spec(struc,data,velo,chan0,nchan,nx,ny,wbounds=[8.0,29.0]):
     size = np.where(mask2d>0)[0].shape[0]
     md = np.ma.masked_array(data,mask=mask3d)
     sps = md.sum(axis=(1,2))
+    spm = md.mean(axis=(1,2))
     spp = data[:,y_p,x_p]
 
-    sp_peak = smooth(spp,window_len=5) # spectrum - peak - smooth
-    sp_sum = smooth(sps,window_len=5) # spectrum - sum - smooth
-    sp_fit,peak,vlsr,fwhm,e1,e2,e3 = fit(velo,sps,init=[sp_sum[v_p],velo[v_p],15],\
+    if method == 'peak':
+        spec = spp
+    elif method == 'mean':
+        spec = spm
+    elif method == 'sum':
+        spec = sps
+    else:
+        print('method error')
+        return 0
+
+    sp_fit,peak,vlsr,fwhm,e1,e2,e3 = fit(velo,spec,init=[spec[v_p],velo[v_p],15],\
             vbounds=[velo[v_p]-5,velo[v_p]+5],wbounds=wbounds)
 
     return peak, vlsr, fwhm, e1,e2,e3, size
@@ -105,7 +114,7 @@ def main(args):
         else:
             wbounds = [5,30]
 
-        peak,vlsr,fwhm,err1,err2,err3,size = struc_spec(struc,data,velo,args.chan_0,nchan,nx,ny,wbounds=wbounds)
+        peak,vlsr,fwhm,err1,err2,err3,size = struc_spec(struc,data,velo,args.chan_0,nchan,nx,ny,wbounds=wbounds,method=args.method)
 
         d_far,d_near = vlsr_distance(gc.l.value,vlsr)
         print("{index:02d} {Gname} {Coor} {peak:5.2f}$\pm${perr:4.2f} {vlsr:4.1f}$\pm${verr:3.1f} {fwhm:4.1f}$\pm${werr:3.1f} {integ:8.2f} {area:3d} {d1:4.1f} {d2:4.1f}".format(index=leaf_label,Gname=gal_str,Coor=equ_str,peak=peak,perr=err1,vlsr=vlsr,verr=err2,fwhm=fwhm,werr=err3,integ=peak*fwhm,area=size,d1=d_far,d2=d_near))
@@ -129,6 +138,8 @@ if __name__ == '__main__':
     parser.add_argument('--file_csv', type=str, help='the csv file for output')
     parser.add_argument('--chan_0', type=int, default=0,  help='channel index start')
     parser.add_argument('--chan_1', type=int, default=-1, help='channel index end')
+    parser.add_argument('--method',type=str, default='sum', help='method to extracting spectra: sum, mean, peak')
+
     args = parser.parse_args()
     start_time = time.time()
     main(args)
