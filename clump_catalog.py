@@ -92,7 +92,7 @@ def main(args):
         fcsv = open(args.file_csv,'w')
         fieldnames = ['Index', 'GName', 'GLon', 'GLat', 'Coordinate', \
                       'Peak', 'Peak_err', 'VLSR', 'VLSR_err', 'FWHM', 'FWHM_err',\
-                      'Flux_int', 'Area', 'D_far', 'D_near']
+                      'Flux_int', 'Flux_int_err','Area', 'D_far', 'D_near']
         writer = csv.DictWriter(fcsv,fieldnames=fieldnames,quoting=csv.QUOTE_NONE)
         writer.writeheader()
     # ------------------------
@@ -116,14 +116,16 @@ def main(args):
             wbounds = [5,30]
 
         peak,vlsr,fwhm,err1,err2,err3,size = struc_spec(struc,data,velo,args.chan_0,nchan,nx,ny,wbounds=wbounds,method=args.method)
+        flux_int = peak*fwhm
+        err4 = np.sqrt(peak**2*err3**2+fwhm**2*err1**2)
 
         d_far,d_near = vlsr_distance(gc.l.value,vlsr)
-        print("{index:02d} {Gname} {Coor} {peak:5.2f}$\pm${perr:4.2f} {vlsr:4.1f}$\pm${verr:3.1f} {fwhm:4.1f}$\pm${werr:3.1f} {integ:8.2f} {area:3d} {d1:4.1f} {d2:4.1f}".format(index=leaf_label,Gname=gal_str,Coor=equ_str,peak=peak,perr=err1,vlsr=vlsr,verr=err2,fwhm=fwhm,werr=err3,integ=peak*fwhm,area=size,d1=d_far,d2=d_near))
+        print("{index:02d} {Gname} {Coor} {peak:5.2f}$\pm${perr:4.2f} {vlsr:4.1f}$\pm${verr:3.1f} {fwhm:4.1f}$\pm${werr:3.1f} {integ:8.1f}$\pm${int_err:4.1f} {area:3d} {d1:4.1f} {d2:4.1f}".format(index=leaf_label,Gname=gal_str,Coor=equ_str,peak=peak,perr=err1,vlsr=vlsr,verr=err2,fwhm=fwhm,werr=err3,integ=flux_int,int_err=err4,area=size,d1=d_far,d2=d_near))
         if args.file_csv is not None:
             row = {'Index':leaf_label, 'GName':gal_str,\
                     'GLon':gc.l.value, 'GLat':gc.b.value,'Coordinate':equ_str,\
                     'Peak':peak, 'Peak_err':err1,'VLSR':vlsr, 'VLSR_err':err2,\
-                    'FWHM':fwhm, 'FWHM_err':err3, 'Flux_int':peak*fwhm,\
+                    'FWHM':fwhm, 'FWHM_err':err3, 'Flux_int':flux_int,'Flux_int_err':err4,\
                     'Area':size, 'D_far':d_far, 'D_near':d_near}
 
             writer.writerow(row)
