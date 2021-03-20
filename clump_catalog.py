@@ -6,9 +6,8 @@ from toolkit import smooth, vlsr_distance
 from pyrrl.spec import fit
 from astropy.io import fits
 from astropy.wcs import WCS
-from astropy.visualization import simple_norm
 from astropy.coordinates import SkyCoord
-from astrodendro import Dendrogram, ppv_catalog
+from astrodendro import Dendrogram
 
 def main(args):
     # -------------------------------------------
