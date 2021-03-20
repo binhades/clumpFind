@@ -60,10 +60,11 @@ def main(args):
     # ------------------------
     # unit convert: Jy/beam -> mJy/pix
     # ------------------------
-    beam = 4.7 # arcmin
-    pix = 1.0 # arcmin
-    pix_over_beam = pix**2/((beam/2)**2*np.pi)
-    data = data * 1000 * pix_over_beam # x Jy/beam = (x * pix/beam) Jy/pix
+    if args.unit == 'Jy':
+        beam = 4.7 # arcmin
+        pix = 1.0 # arcmin
+        pix_over_beam = pix**2/((beam/2)**2*np.pi)
+        data = data * 1000 * pix_over_beam # x Jy/beam = (x * pix/beam) Jy/pix
 
     #------------------------
     #    Load dendrogram
@@ -139,6 +140,7 @@ if __name__ == '__main__':
     parser.add_argument('--chan_0', type=int, default=0,  help='channel index start')
     parser.add_argument('--chan_1', type=int, default=-1, help='channel index end')
     parser.add_argument('--method',type=str, default='sum', help='method to extracting spectra: sum, mean, peak')
+    parser.add_argument('--unit',type=str, default='Jy', help='default unit')
 
     args = parser.parse_args()
     start_time = time.time()
