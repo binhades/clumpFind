@@ -23,7 +23,8 @@ def plot_spec(fig,x,ypeak,ysum,yfit,ftsize='xx-large',title=None,vline=None):
     ax.plot(x,ysum, '-',lw=1.5, color='k', label='Sum')
     ax.plot(x,yfit,'--',lw=2.5, color='r', label='Fit')
     #ax.legend(fontsize=ftsize)
-    ax.set_xlim(-100,120)
+    ax.set_xlim(0,200) # for carbon
+    #ax.set_xlim(-120,150) # for hydrogen
     ax.set_xlabel('V$_{LSR}$ (km$\,$s$^{-1}$)',fontsize=ftsize)
     ax.set_ylabel('Flux (mJy)',fontsize=ftsize)
     ax.tick_params(labelsize=ftsize)
@@ -70,8 +71,8 @@ def struc_spec(struc,data,velo,chan0,nchan,nx,ny,wbounds=[8.0,29.0]):
     sp_peak = smooth(spp,window_len=5) # spectrum - peak - smooth
     sp_sum = smooth(sps,window_len=5) # spectrum - sum - smooth
     sp_fit,peak,vlsr,fwhm,e1,e2,e3 = fit(velo,sps,init=[sp_sum[v_p],velo[v_p],15],\
-            vbounds=[velo[v_p]-5,velo[v_p]+5],wbounds=wbounds)
-    print(peak,vlsr,fwhm)
+            vbounds=[velo[v_p]-1,velo[v_p]+1],wbounds=wbounds)
+    print(peak,vlsr,fwhm,velo[v_p])
 
     return sp_peak, sp_sum, sp_fit, vlsr
 
@@ -122,12 +123,17 @@ def main(args):
     for i, struc in enumerate(d.leaves):
         title,file_out = struc_info(struc,wcs,idx_arr=leaves_idx_arr,stype='leaf')
         print(title,struc.idx)
-        if struc.idx == 30:
-            wbounds = [10,30]
-        else:
-            wbounds = [5,30]
+        if args.type == 'hydrogen':
+            if struc.idx == 30:
+                wbounds = [10,30]
+            else:
+                wbounds = [5,30]
+        elif args.type == 'carbon':
+                wbounds = [3,8]
             
         sp_peak,sp_sum,sp_fit,vlsr = struc_spec(struc,data,velo,args.chan_0,nchan,nx,ny,wbounds=wbounds)
+        if args.type == 'carbon':
+            vlsr=None
         plot_spec(fig,velo,sp_peak,sp_sum,sp_fit,vline=vlsr,title=title,ftsize=25)
         fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
         fig.clear(True)
@@ -148,6 +154,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('fits_file', type=str, help='the input data file')
     parser.add_argument('--file_d', type=str, default='my_dendrogram', help='the dendrogram file')
+    parser.add_argument('--type', type=str, default='hydrogen', help='the line type')
     parser.add_argument('--chan_0', type=int, default=0,  help='channel index start')
     parser.add_argument('--chan_1', type=int, default=-1, help='channel index end')
     args = parser.parse_args()
