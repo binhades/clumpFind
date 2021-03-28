@@ -10,23 +10,29 @@ from astropy.coordinates import SkyCoord
 from astrodendro import Dendrogram
 from matplotlib import pyplot as plt
 
-def plot_spec(fig,x,y,yfit,ftsize='xx-large',title=None,vline=None,method=None):
+def plot_spec(fig,x,y,yfit,ftsize='xx-large',vlim=None,title=None,vline=None,method=None,legend=False):
     ax=fig.add_subplot(1,1,1)
 
     if vline is not None:
-        ax.axvline(vline,lw=1,color='blue')
+        ax.axvline(vline,lw=1,color='red')
+        ax.text(vline+8,0.9*max(y),r'H$n\alpha$',fontsize=ftsize)
+
         ax.axvline(vline-122,lw=1,color='green')
-        ax.text(vline+8,0.9*max(yfit),r'Hn$\alpha$',fontsize=ftsize)
-        ax.text(vline-122+5,0.9*max(yfit),r'Hen$\alpha$',fontsize=ftsize)
+        ax.text(vline-122+5,0.9*max(y),r'He$n\alpha$',fontsize=ftsize)
+
+        ax.axvline(vline-150,lw=1,color='blue')
+        ax.text(vline-150-35,0.9*max(y),r'C$n\alpha$',fontsize=ftsize)
 
     ax.plot(x,y, '-',lw=1.5, color='k', label=method)
     ax.plot(x,yfit,'--',lw=2.5, color='r', label='Fit')
-    #ax.legend(fontsize=ftsize)
-    #ax.set_xlim(0,200) # for carbon
-    ax.set_xlim(-120,150) # for hydrogen
     ax.set_xlabel('V$_{LSR}$ (km$\,$s$^{-1}$)',fontsize=ftsize)
     ax.set_ylabel('Flux (mJy)',fontsize=ftsize)
     ax.tick_params(labelsize=ftsize)
+
+    if legend:
+        ax.legend(fontsize=ftsize)
+    if vlim is not None:
+        ax.set_xlim(vlim[0],vlim[1])
     if title is not None:
         ax.set_title(title,fontsize=ftsize)
     return ax
@@ -138,8 +144,12 @@ def main(args):
             
         spec,sp_fit,vlsr = struc_spec(struc,data,velo,args.chan_0,nchan,nx,ny,wbounds=wbounds,method=args.method)
         if args.type == 'carbon':
-            vlsr=None
-        plot_spec(fig,velo,spec,sp_fit,vline=vlsr,title=title,ftsize=25,method=args.method)
+            vline=None
+            vlim=[0,300]
+        else:
+            vline=vlsr
+            vlim=[-150,150]
+        plot_spec(fig,velo,spec,sp_fit,vlim=vlim,vline=vline,title=title,ftsize=25,method=args.method)
         fig.savefig(file_out,dpi=300,format='png',bbox_inches='tight')
         fig.clear(True)
 
