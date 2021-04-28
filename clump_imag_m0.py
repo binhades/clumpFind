@@ -85,13 +85,22 @@ def main(args):
     im0 = ax0.imshow(imag0,origin='lower',interpolation='nearest',cmap=colormap(args.cmap),\
             aspect='equal',norm=norm) 
     # coordinates
-    ra0 = ax0.coords['ra']
-    de0 = ax0.coords['dec']
-    ra0.set_axislabel('R.A. (J2000)',minpad=0.5,size="xx-large")
-    de0.set_axislabel('Dec. (J2000)',minpad=0.5,size="xx-large")
-    ra0.set_separator(('$\mathrm{^h}$','$\mathrm{^m}$'))
-    ra0.set_ticklabel(size="xx-large")
-    de0.set_ticklabel(size="xx-large")
+    if args.proj == 'equ':
+        ra0 = ax0.coords['ra']
+        de0 = ax0.coords['dec']
+        ra0.set_axislabel('R.A. (J2000)',minpad=0.5,size="xx-large")
+        de0.set_axislabel('Dec. (J2000)',minpad=0.5,size="xx-large")
+        ra0.set_separator(('$\mathrm{^h}$','$\mathrm{^m}$'))
+        ra0.set_ticklabel(size="xx-large")
+        de0.set_ticklabel(size="xx-large")
+    elif args.proj == 'gal':
+        l0 = ax0.coords['glon']
+        b0 = ax0.coords['glat']
+        l0.set_axislabel('l deg',minpad=0.5,size="xx-large")
+        b0.set_axislabel('b deg',minpad=0.5,size="xx-large")
+        l0.set_ticklabel(size="xx-large")
+        b0.set_ticklabel(size="xx-large")
+
     # beam
     if args.beam is not None:
         beam = patches.Circle((5,5),radius=args.beam/2,edgecolor='k',facecolor='w',alpha=0.5) # pixel coordinates
@@ -152,6 +161,7 @@ if __name__ == '__main__':
     parser.add_argument('--chan_1', type=int, default=-1, help='channel index end')
     parser.add_argument('--cmap', type=str, default='hot', help='the colormap, batlow or lajolla')
     parser.add_argument('--beam', type=float, help='set to add beam to image, size in pixel. 4.7 for FAST rrl cube')
+    parser.add_argument('--proj', type=str, default='equ', help='equ or gal, projection of the map coordinate system')
     args = parser.parse_args()
     start_time = time.time()
     main(args)
