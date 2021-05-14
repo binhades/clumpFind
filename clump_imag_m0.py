@@ -5,6 +5,7 @@
 
 import argparse, os, time
 import numpy as np
+import aplpy
 from toolkit import smooth
 from toolkit import colormap
 from astropy.io import fits
@@ -49,24 +50,35 @@ def add_source(ax, file_csv, wcs):
 
 def main(args):
 
+#    #------------------------
+#    #    Load DataCube
+#    #------------------------
+#    print('Load DataCube')
+#    hdu = fits.open(args.file_cube)[0]
+#    hdr = hdu.header
+#    wcs = WCS(header=hdr).celestial
+#    data = hdu.data
+#    nchan = data.shape[0]
+#    velo = (np.arange(nchan) - hdr['CRPIX3'] + 1) * hdr['CDELT3'] + hdr['CRVAL3']
+#    ny = data.shape[1]
+#    nx = data.shape[2]
+#
+#    # unit convert: Jy/beam -> mJy/pix
+#    beam = 4.7 # arcmin
+#    pix = 1.0 # arcmin
+#    pix_over_beam = pix**2/((beam/2)**2*np.pi)
+#    data = data * 1000 * pix_over_beam # x Jy/beam = (x * pix/beam) Jy/pix
+#    imag0 = data[args.chan_0:args.chan_1,:,:].mean(axis=0)
+#    print(imag0.shape)
+
     #------------------------
-    #    Load DataCube
+    #    Load Moment 0 map
     #------------------------
-    print('Load DataCube')
-    hdu = fits.open(args.fits_file)[0]
+    hdu = fits.open(args.file_map)[0]
     hdr = hdu.header
     wcs = WCS(header=hdr).celestial
-    data = hdu.data
-    nchan = data.shape[0]
-    velo = (np.arange(nchan) - hdr['CRPIX3'] + 1) * hdr['CDELT3'] + hdr['CRVAL3']
-    ny = data.shape[1]
-    nx = data.shape[2]
-
-    # unit convert: Jy/beam -> mJy/pix
-    beam = 4.7 # arcmin
-    pix = 1.0 # arcmin
-    pix_over_beam = pix**2/((beam/2)**2*np.pi)
-    data = data * 1000 * pix_over_beam # x Jy/beam = (x * pix/beam) Jy/pix
+    imag0 = hdu.data
+    print(imag0.shape)
 
     #------------------------
     #    Load dendrogram
@@ -77,13 +89,12 @@ def main(args):
     #------------------------
     # Plot all leaves and branches on full frame of Moment0 map.
     #------------------------
-    imag0 = data[args.chan_0:args.chan_1,:,:].mean(axis=0)
     norm = simple_norm(imag0,stretch='asinh',asinh_a=0.18,min_percent=5,max_percent=100)
 
     fig0 = plt.figure(figsize=(8,8))
     ax0  = fig0.add_subplot(1,1,1,projection=wcs)
     im0 = ax0.imshow(imag0,origin='lower',interpolation='nearest',cmap=colormap(args.cmap),\
-            aspect='equal',norm=norm) 
+            aspect='equal')#,norm=norm) 
     # coordinates
     if args.proj == 'equ':
         ra0 = ax0.coords['ra']
@@ -146,6 +157,7 @@ def main(args):
                 leaf_label = add_leaf_label(ax0,leaves_idx_arr,sub_struc)
                 file_out = 'leaf_{:d}_{}.png'.format(leaf_label,args.cmap)
                 mask = sub_struc.get_mask().mean(axis=0)
+                print(mask.shape)
                 ax0.contour(mask,linewidths=1.5,levels=[0.001],alpha=0.8,colors=[color])
 
     fig0.savefig('m0-clumps_{}.png'.format(args.cmap),dpi=300,format='png',bbox_inches='tight')
@@ -154,7 +166,8 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('fits_file', type=str, help='the input data file')
+    parser.add_argument('file_map', type=str, help='the input data file')
+    parser.add_argument('--file_cube', type=str, help='the input data file')
     parser.add_argument('--file_d', type=str, default='my_dendrogram', help='the dendrogram file')
     parser.add_argument('--file_c', type=str, help='the catalog file to add source on map')
     parser.add_argument('--chan_0', type=int, default=0,  help='channel index start')
