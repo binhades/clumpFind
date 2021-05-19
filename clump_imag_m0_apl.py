@@ -29,7 +29,7 @@ from matplotlib import cm
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm
 
-def plot_image(file_in,file_out=None,file_contour=None,file_reg=None,resize=None,contour=False,levels=None,contour_color='#d0d0d0',plot=False,oformat='png',skycoor='equ',vmin=None,vmax=None,pmin=0.25,pmax=99.75,stretch='linear',vmid=None,exponent=2,cmap='hot',beam=None,colorbar=None,dendro=None,catalog=None):
+def plot_image(file_in,file_out=None,file_contour=None,file_reg=None,resize=None,contour=False,levels=None,contour_color='#d0d0d0',plot=False,oformat='png',skycoor='equ',vmin=None,vmax=None,pmin=0.25,pmax=99.75,stretch='linear',vmid=None,exponent=2,cmap='hot',beam=None,colorbar=None,dendro=None,file_catalog=None,addgal=True,save=True):
     fig = aplpy.FITSFigure(file_in)
     fig.show_colorscale(vmin=vmin,vmax=vmax,pmin=pmin,pmax=pmax,cmap=colormap(cmap),aspect='equal',smooth=1,stretch=stretch,vmid=vmid,exponent=exponent)
 
@@ -48,6 +48,29 @@ def plot_image(file_in,file_out=None,file_contour=None,file_reg=None,resize=None
 #    fig.show_circles([50.05,], [-0.85,], 0.028,color='white',linewidth=1)
 #    fig.add_label(50.05, -0.95,"FWHM 3.4'",color='white')
 #-------------------------------------------------------------------
+    if addgal:
+        l = np.arange(30,70,0.05)
+        b0 = np.zeros(int((70-30)/0.05))
+        bp = np.zeros(int((70-30)/0.05)) + 0.5
+        bm = np.zeros(int((70-30)/0.05)) - 0.5
+
+        gal_c0 = SkyCoord(l,b0,frame=Galactic,unit="deg")
+        gal_cp = SkyCoord(l,bp,frame=Galactic,unit="deg")
+        gal_cm = SkyCoord(l,bm,frame=Galactic,unit="deg")
+
+        ra0 = gal_c0.icrs.ra.value
+        rap = gal_cp.icrs.ra.value
+        ram = gal_cm.icrs.ra.value
+        dec0 = gal_c0.icrs.dec.value
+        decp = gal_cp.icrs.dec.value
+        decm = gal_cm.icrs.dec.value
+
+        fig.show_lines([np.array([ra0,dec0]),np.array([rap,decp]),np.array([ram,decm])], \
+                color='darkgrey', linewidths=2, linestyle=['-','--','--'])
+        fig.add_label(283.95, 2.18,r"b=$0^{\circ}$",color='black',fontsize=14)
+        fig.add_label(283.38, 2.18,r"b=$0.5^{\circ}$",color='black',fontsize=14)
+        fig.add_label(284.42, 1.8,r"b=$-0.5^{\circ}$",color='black',fontsize=14)
+
 
     if skycoor == 'gal':
         fig.axis_labels.set_xtext('Galactic Longitude')
@@ -115,6 +138,7 @@ def plot_image(file_in,file_out=None,file_contour=None,file_reg=None,resize=None
     c=1
     for i, struc in enumerate(dendro.trunk):
         if struc.is_leaf:
+            leaf_label = add_leaf_label(fig,leaves_idx_arr,struc)
             color = colors[0]
             subtree = []
             line = 'solid'
@@ -127,16 +151,22 @@ def plot_image(file_in,file_out=None,file_contour=None,file_reg=None,resize=None
         mask = struc.get_mask().mean(axis=0)
 
         fig.show_contour(mask,linewidths=1.5,levels=[0.001],alpha=0.8,colors=[color],linestyles=line)#,smooth=1)
+        fig.add_label(283.95, 2.18,r"b=$0^{\circ}$",color='black',fontsize=14)
+
         print(color)
 
         for j, sub_struc in enumerate(subtree):
             if sub_struc.is_leaf:
+                leaf_label = add_leaf_label(fig,leaves_idx_arr,sub_struc)
                 mask = sub_struc.get_mask().mean(axis=0)
                 fig.show_contour(mask,linewidths=1.5,levels=[0.001],alpha=0.8,colors=[color])#,smooth=1)
 
-    file_out='m0-clumps_{}.png'.format(cmap)
+    if file_catalog is not None:
+        add_source(fig,file_catalog)
 
-    if file_out is not None:
+    if save:
+        if file_out is None:
+            file_out='m0-clumps_{}.png'.format(cmap)
         fig.save(file_out,dpi=300,format=oformat,adjust_bbox=True)
 
     if plot:
@@ -144,12 +174,13 @@ def plot_image(file_in,file_out=None,file_contour=None,file_reg=None,resize=None
     fig.close()
     return 0
 
-def add_leaf_label(ax, idx_arr, struc):
+def add_leaf_label(fig, idx_arr, struc):
     leaf_label = np.argwhere(idx_arr == struc.idx)[0][0]+1
     peak = struc.get_peak()[0]
     x_p = peak[2]
     y_p = peak[1]
-    ax.text(x_p-1,y_p+1,str(leaf_label),fontsize='x-large',color='k')
+    xw, yw = fig.pixel2world(x_p-1,y_p+1)
+    fig.add_label(float(xw),float(yw),str(leaf_label),fontsize='x-large',color='k')
 
     return leaf_label
 
@@ -162,19 +193,15 @@ def load_csv(file_csv):
             catalog.append({'GName':row['GName'],'RA':row['RA'],'Dec':row['Dec']})
     return catalog
 
-def add_source(ax, file_csv, wcs):
-
-    catalog = load_csv(file_csv)
-
+def add_source(fig, file_catalog):
+    catalog = load_csv(file_catalog)
     for item in catalog:
         ra = item['RA']
         dec = item['Dec']
         pos = SkyCoord(ra,dec,frame='fk5',unit=(u.hourangle, u.deg))
-        ax.scatter(pos.ra.degree, pos.dec.degree,200,marker='*',color='#00FFFF',transform=ax.get_transform('fk5'))
-        #ax.text(pos.ra.degree, pos.dec.degree,item['GName'],color='#00FFFF',transform=ax.get_transform('fk5'))
+        fig.show_markers(pos.ra.degree, pos.dec.degree,marker='*',s=200,edgecolor='#00FFFF',facecolor='#00FFFF')
 
 def main(args):
-
 
     #------------------------
     #    Load dendrogram
@@ -188,17 +215,15 @@ def main(args):
             levels=args.levels,skycoor=args.skycoor,beam=args.beam,\
             vmin=args.vmin,vmax=args.vmax,pmin=args.pmin,pmax=args.pmax,\
             stretch=args.stretch,cmap=args.cmap,colorbar=args.colorbar,\
-            dendro=d,catalog=args.file_c)
+            dendro=d,file_catalog=args.file_catalog)
 
-  
     return 0
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('file_map', type=str, help='the input data file')
-    parser.add_argument('--file_cube', type=str, help='the input data file')
     parser.add_argument('--file_d', type=str, default='my_dendrogram', help='the dendrogram file')
-    parser.add_argument('--file_c', type=str, help='the catalog file to add source on map')
+    parser.add_argument('--file_catalog', type=str, help='the catalog file to add source on map')
     parser.add_argument('--chan_0', type=int, default=0,  help='channel index start')
     parser.add_argument('--chan_1', type=int, default=-1, help='channel index end')
     parser.add_argument('--cmap', type=str, default='hot', help='the colormap, batlow or lajolla')
