@@ -29,9 +29,11 @@ from matplotlib import cm
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm
 
-def plot_image(file_in,file_out=None,file_contour=None,file_reg=None,resize=None,contour=False,levels=None,contour_color='#d0d0d0',plot=False,oformat='png',skycoor='equ',vmin=None,vmax=None,pmin=0.25,pmax=99.75,stretch='linear',vmid=None,exponent=2,cmap='hot',beam=None,colorbar=None,dendro=None,file_catalog=None,addgal=True,save=True):
+def plot_image(file_in,file_out=None,file_contour=None,file_reg=None,resize=None,contour=False,levels=None,contour_color='#d0d0d0',plot=False,oformat='png',skycoor='equ',vmin=None,vmax=None,pmin=0.25,pmax=99.75,stretch='linear',vmid=None,exponent=2,cmap='hot',beam=None,colorbar=None,dendro=None,file_catalog=None,addgal=True,save=True,smooth=None,beamcolor='blue'):
+    if smooth ==0:
+        smooth =None
     fig = aplpy.FITSFigure(file_in)
-    fig.show_colorscale(vmin=vmin,vmax=vmax,pmin=pmin,pmax=pmax,cmap=colormap(cmap),aspect='equal',smooth=1,stretch=stretch,vmid=vmid,exponent=exponent)
+    fig.show_colorscale(vmin=vmin,vmax=vmax,pmin=pmin,pmax=pmax,cmap=colormap(cmap),aspect='equal',smooth=smooth,stretch=stretch,vmid=vmid,exponent=exponent)
 
 #    fig.hide_colorscale()
     if resize is not None:
@@ -41,7 +43,7 @@ def plot_image(file_in,file_out=None,file_contour=None,file_reg=None,resize=None
     if beam is not None:
         fig.add_beam(major=beam/60,minor=beam/60,angle=0,corner='bottom left')
         fig.beam.set_alpha(0.5)
-        fig.beam.set_edgecolor('blue')
+        fig.beam.set_edgecolor(beamcolor)
         fig.beam.set_facecolor('white')
         fig.beam.set_linewidth(3)
 #-------------------------------------------------------------------
@@ -212,8 +214,8 @@ def main(args):
     plot_image(args.file_map,args.file_out,file_reg=args.file_reg,file_contour=args.file_contour,\
             plot=args.plot,oformat=args.format,resize=args.resize,\
             contour=args.contour,contour_color=args.contour_color,\
-            levels=args.levels,skycoor=args.skycoor,beam=args.beam,\
-            vmin=args.vmin,vmax=args.vmax,pmin=args.pmin,pmax=args.pmax,\
+            levels=args.levels,skycoor=args.skycoor,beam=args.beam,beamcolor=args.beamcolor,\
+            vmin=args.vmin,vmax=args.vmax,pmin=args.pmin,pmax=args.pmax,smooth=args.smooth,\
             stretch=args.stretch,cmap=args.cmap,colorbar=args.colorbar,\
             dendro=d,file_catalog=args.file_catalog)
 
@@ -228,6 +230,7 @@ if __name__ == '__main__':
     parser.add_argument('--chan_1', type=int, default=-1, help='channel index end')
     parser.add_argument('--cmap', type=str, default='hot', help='the colormap, batlow or lajolla')
     parser.add_argument('--beam', type=float, help='set to add beam to image, size in pixel. 4.7 for FAST rrl cube')
+    parser.add_argument('--beamcolor', type=str,default='blue', help='set to add beam to image, size in pixel. 4.7 for FAST rrl cube')
     parser.add_argument('--proj', type=str, default='equ', help='equ or gal, projection of the map coordinate system')
 
     parser.add_argument('--file_out', type=str, help='Output file name for the figure')
@@ -242,6 +245,7 @@ if __name__ == '__main__':
     parser.add_argument('--plot', action='store_true', help='set to show plot')
     parser.add_argument('--vmin', type=float, help='Minimum pixel value to use for the colorscale.')
     parser.add_argument('--vmax', type=float, help='Maximum pixel value to use for the colorscale.')
+    parser.add_argument('--smooth', type=int, default=1, help='smooth to number of pixels')
     parser.add_argument('--colorbar', type=str, help='the colorbar title if is to show')
     parser.add_argument('--pmin', type=float, help='Percentile value used to determine the Minimum pixel value to use for the colorscale.')
     parser.add_argument('--pmax', type=float, help='Percentile value used to determine the Maximum pixel value to use for the colorscale.')
