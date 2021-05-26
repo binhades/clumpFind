@@ -113,7 +113,7 @@ def main(args):
     #    Load dendrogram
     #------------------------
     print('Load Dendrogram')
-    d = Dendrogram.load_from(args.file_d+'.hdf5')
+    d = Dendrogram.load_from(args.file_d)
     print('')
     # ------------------------
     # leaf label
@@ -128,7 +128,7 @@ def main(args):
     peak_ind = np.argsort(np.array(list_peak))[::-1]
     leaves_idx_arr = np.array(list_idx)[peak_ind]
     # ------------------------
-    fig = plt.Figure(figsize=(8, 4))
+    fig = plt.Figure(figsize=(6, 4.5))
 
     spec_arr = []
     rms_arr =[]
@@ -150,9 +150,9 @@ def main(args):
 
     
     for i, spec in enumerate(spec_arr):
+        #weight = 1.
+        #weight = 1./rms_arr[i]
         weight = 1./(rms_arr[i]**2)
-        weight = 1.
-        weight = 1./rms_arr[i]
         spec_i = spec*weight
         if i == 0:
             spec_ave = spec_i
@@ -160,7 +160,10 @@ def main(args):
             spec_ave = spec_ave + spec_i
 
     velo = np.arange(0,len(spec_ave))*0.5 - 200
-    plot_spec(fig,velo,spec_ave,vline=0,ftsize=25,method=args.method)
+    print(spec_ave.shape)
+    print('rms',np.std(spec_ave[0:300]))
+    print('max',np.max(spec_ave))
+    plot_spec(fig,velo,spec_ave,vline=0,ftsize=12,method=args.method)
     fig.savefig('clump_spec_aver_w1.png',dpi=300,format='png',bbox_inches='tight')
     plt.close()
     return 0
