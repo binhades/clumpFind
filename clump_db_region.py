@@ -29,7 +29,7 @@ def get_leaf_mask(struc, leaf_index_list,wcs,group):
     gname = 'G{:5.2f}{:+5.2f}'.format(gc.l.value,gc.b.value)
 
     mask = struc.get_mask().mean(axis=0)
-    mask[np.nonzero(mask)] = 1.001
+    mask[np.nonzero(mask)] = 1
     poly_x,poly_y = get_polygon_from_mask(mask,wcs)
 
     data = {'GName':gname,'Id':leaf_ind, 'Gid':group, \
@@ -41,20 +41,25 @@ def get_leaf_mask(struc, leaf_index_list,wcs,group):
 def get_branch_mask(struc, index,wcs):
 
     mask = struc.get_mask().mean(axis=0)
-    mask[np.nonzero(mask)] = 1.001
+    mask[np.nonzero(mask)] = 1
     poly_x,poly_y = get_polygon_from_mask(mask,wcs)
     data = {'Gid':index,'PolyX':poly_x, 'PolyY':poly_y}
 
     return data
 
 def get_polygon_from_mask(mask,wcs):
-
+    pos = None
     plt.subplot(projection=wcs)
     contour = plt.contour(mask,levels=[1.0])
     plt.close()
-    pos = contour.collections[0].get_segments()[0]
-    poly_x = pos[:,0]
-    poly_y = pos[:,1]
+    for seg in contour.collections[0].get_segments():
+        if pos is None:
+            pos = seg
+        else:
+            pos = np.concatenate((pos,seg))
+    coor = SkyCoord.from_pixel(pos[:,0],pos[:,1],wcs)
+    poly_x = coor.ra.value
+    poly_y = coor.dec.value
 
     return poly_x,poly_y
 
@@ -82,15 +87,14 @@ def db_init(file_sql):
     except sqlite3.Error as err:
         print('Init Sqlite3 connection Error:', err)
         return None
-
     table1 = 'Regions'
     
     table1_hdr = ''' GName TEXT PRIMARY KEY,
                      Equ_J2000 TEXT,
                      RA REAL,
                      Dec REAL,
-                     Id INT,
-                     Gid INT,
+                     Id INTEGER,
+                     Gid INTEGER,
                      PolyX BLOB,
                      PolyY BLOB
                  '''
@@ -131,7 +135,7 @@ def db_add_leaf(conn,leaf):
         polyYStr = poly_y.tobytes(order='C')
 
         data = (leaf['GName'],leaf['Equ_J2000'],leaf['RA'],leaf['Dec'], \
-                leaf['Id'],leaf['Gid'],polyXStr,polyYStr)
+                int(leaf['Id']),int(leaf['Gid']),polyXStr,polyYStr)
         cur.execute("INSERT INTO Regions (GName,Equ_J2000,RA,Dec,Id,Gid,PolyX,PolyY) \
                      VALUES (?,?,?,?,?,?,?,?)",data)
         conn.commit()
@@ -148,7 +152,7 @@ def db_add_branch(conn,branch):
         polyXStr = poly_x.tobytes(order='C')
         polyYStr = poly_y.tobytes(order='C')
 
-        data = (branch['Gid'],polyXStr,polyYStr)
+        data = (int(branch['Gid']),polyXStr,polyYStr)
         cur.execute("INSERT INTO Groups (Gid,PolyX,PolyY) \
                      VALUES (?,?,?)",data)
         conn.commit()
