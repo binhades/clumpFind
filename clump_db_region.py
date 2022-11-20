@@ -49,9 +49,12 @@ def get_branch_mask(struc, index,wcs):
 
 def get_polygon_from_mask(mask,wcs):
     pos = None
-    plt.subplot(projection=wcs)
-    contour = plt.contour(mask,levels=[1.0])
-    plt.close()
+    try:
+        plt.subplot(projection=wcs)
+        contour = plt.contour(mask,levels=[1.0])
+        plt.close()
+    except UserWarning:
+        0
     for seg in contour.collections[0].get_segments():
         if pos is None:
             pos = seg
@@ -73,9 +76,10 @@ def get_leaf_index_list(dendro):
         list_peak.append(peak)
         list_idx.append(struc.idx)
     peak_ind = np.argsort(np.array(list_peak))[::-1]
+    peak_arr = np.array(list_peak)[peak_ind]
     leaf_index_list = np.array(list_idx)[peak_ind]
 
-    return leaf_index_list
+    return leaf_index_list, peak_arr
 
 # ------------------------------------------------------------------
 # Functions for database
@@ -188,7 +192,7 @@ def main(args):
     #------------------------
     print('Load Dendrogram')
     dendro = Dendrogram.load_from(args.file_dend)
-    leaf_index_list = get_leaf_index_list(dendro)
+    leaf_index_list, peak_arr = get_leaf_index_list(dendro)
     branch_index_list = []
 
     # ------------------------
