@@ -290,7 +290,6 @@ def main(args):
                 d_ma = mask_data(mask,d_ma,mode='inside')
         fits.writeto(f_mask,d_ma,hdr,overwrite=True)
 
-
     return 0
 
 if __name__ == '__main__':
