@@ -270,19 +270,24 @@ def main(args):
 
     with fits.open(args.file_fits,mode='readonly') as hdul:
         hdr = hdul[0].header
-        data = np.copy(np.squeeze(hdul[0].data))
+        d_ma = np.copy(np.squeeze(hdul[0].data))
         count_branch=0
         for i, struc in enumerate(dendro.trunk):
             if struc.is_branch: # branch
-                mask = struc.get_mask().mean(axis=0)
-                d_ma = mask_data(mask,data,mode='outside')
-                count_branch=count_branch+1
+                if count_branch == 0:
+                    mask = struc.get_mask().mean(axis=0)
+                    # mask data outside the first branch
+                    d_ma = mask_data(mask,d_ma,mode='outside')
+                    count_branch=count_branch+1
                 subtree = struc.descendants
                 for j, sub_struc in enumerate(subtree):
                     if sub_struc.is_leaf:
+                        # mask data within clumps
                         mask = sub_struc.get_mask().mean(axis=0)
                         d_ma = mask_data(mask,d_ma,mode='inside')
-                break
+            elif struc.is_leaf:
+                mask = struc.get_mask().mean(axis=0)
+                d_ma = mask_data(mask,d_ma,mode='inside')
         fits.writeto(f_mask,d_ma,hdr,overwrite=True)
 
 
